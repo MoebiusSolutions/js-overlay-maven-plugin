@@ -15,6 +15,7 @@
  */
 package com.moesol.test;
 
+import java.util.List;
 import javax.xml.bind.annotation.XmlRootElement;
 import javax.xml.datatype.XMLGregorianCalendar;
 import org.junit.Ignore;
@@ -33,6 +34,11 @@ public class TestObject {
     private XMLGregorianCalendar xmlDate;
     private TestObject2 testObject2;
     private boolean bool;
+    private List<TestObject2> list;
+    private int[] intArray;
+    private TestObject2[] objArray;
+    private List<String> stringList;
+    private String[] stringArray;
 
     /**
      * @return the string
@@ -116,5 +122,75 @@ public class TestObject {
      */
     public void setBool(boolean bool) {
         this.bool = bool;
+    }
+
+    /**
+     * @return the list
+     */
+    public List<TestObject2> getList() {
+        return list;
+    }
+
+    /**
+     * @param list the list to set
+     */
+    public void setList(List<TestObject2> list) {
+        this.setList(list);
+    }
+
+    /**
+     * @return the intArray
+     */
+    public int[] getIntArray() {
+        return intArray;
+    }
+
+    /**
+     * @param intArray the intArray to set
+     */
+    public void setIntArray(int[] intArray) {
+        this.setIntArray(intArray);
+    }
+
+    /**
+     * @return the objArray
+     */
+    public TestObject2[] getObjArray() {
+        return objArray;
+    }
+
+    /**
+     * @param objArray the objArray to set
+     */
+    public void setObjArray(TestObject2[] objArray) {
+        this.objArray = objArray;
+    }
+
+    /**
+     * @return the stringList
+     */
+    public List<String> getStringList() {
+        return stringList;
+    }
+
+    /**
+     * @param stringList the stringList to set
+     */
+    public void setStringList(List<String> stringList) {
+        this.stringList = stringList;
+    }
+
+    /**
+     * @return the stringArray
+     */
+    public String[] getStringArray() {
+        return stringArray;
+    }
+
+    /**
+     * @param stringArray the stringArray to set
+     */
+    public void setStringArray(String[] stringArray) {
+        this.stringArray = stringArray;
     }
 }

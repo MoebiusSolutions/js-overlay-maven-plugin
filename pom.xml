@@ -5,7 +5,7 @@
     <groupId>com.moesol</groupId>
     <artifactId>js-overlay-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
-    <version>1.0</version>
+    <version>1.0.1-SNAPSHOT</version>
     <name>Generate GWT Javascript overlay types</name>
     <dependencies>
         <dependency>

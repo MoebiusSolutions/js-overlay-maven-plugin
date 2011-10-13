@@ -25,6 +25,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -202,17 +204,21 @@ public class JavaScriptOverlayGenerator {
         if (method == null) {
             return;
         }
-        String returnType = getType(method);
+        ReturnType returnType = getType(method);
         String methodName = method.getName();
-        String lowerMethodName = getPropertyName(methodName);
+        String lowerMethodName = returnType.getPropertyName(methodName);
         if (lowerMethodName.equals("default")) {
             config.log.warn("Skipping property with name of Default");
             return;
         }
-        if ("date".equals(returnType)) {
+        if (returnType.date) {
             ps.printf("  public final native java.lang.String %s()/*-{return new String(this.%s);}-*/;%n", methodName, lowerMethodName);
+        } else if (returnType.list) {
+            ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this.%s;}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
+        } else if (returnType.array) {
+            ps.printf("  public final native %s[] %s()/*-{return this.%s;}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
         } else {
-            ps.printf("  public final native %s %s()/*-{return this.%s;}-*/;%n", returnType, methodName, lowerMethodName);
+            ps.printf("  public final native %s %s()/*-{return this.%s;}-*/;%n", returnType.name, methodName, lowerMethodName);
         }
     }
 
@@ -220,17 +226,21 @@ public class JavaScriptOverlayGenerator {
         if (method == null) {
             return;
         }
-        String paramType = getType(method);
+        ReturnType paramType = getType(method);
         String methodName = method.getName();
-        String lowerMethodName = getPropertyName(methodName);
+        String lowerMethodName = paramType.getPropertyName(methodName);
         if (lowerMethodName.equals("default")) {
             config.log.warn("Skipping property with name of Default");
             return;
         }
-        if ("date".equals(paramType)) {
-            ps.printf("  public final native void %s(java.lang.String value)/*-{this.%s = value;}-*/;%n", methodName, paramType, lowerMethodName);
+        if (paramType.date) {
+            ps.printf("  public final native void %s(java.lang.String value)/*-{this.%s = value;}-*/;%n", methodName, lowerMethodName);
+        } else if (paramType.list) {
+            ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this.%s = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
+        } else if (paramType.array) {
+            ps.printf("  public final native void %s(%s[] value)/*-{this.%s = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
         } else {
-            ps.printf("  public final native void %s(%s value)/*-{this.%s = value;}-*/;%n", methodName, paramType, lowerMethodName);
+            ps.printf("  public final native void %s(%s value)/*-{this.%s = value;}-*/;%n", methodName, paramType.name, lowerMethodName);
         }
     }
 
@@ -256,14 +266,68 @@ public class JavaScriptOverlayGenerator {
      * @param method
      * @return 
      */
-    String getType(Method method) {
+    ReturnType getType(Method method) {
+        ReturnType theType = new ReturnType();
         Class<?> type = method.getReturnType();
         if ("void".equals(type.getName())) {
+            // its a set method, get the parameter type
             type = method.getParameterTypes()[0];
         }
         if (type.getName().equals("javax.xml.datatype.XMLGregorianCalendar")) {
-            return "date";
+            theType.name = "date";
+            theType.date = true;
+            return theType;
         }
+        if (type.isArray()) {
+            theType.parameterType = getClassNameType(type.getComponentType());
+            theType.array = true;
+            return theType;
+        }
+        if (getGenericTypes(type, method, theType)) {
+            return theType;
+        }
+        theType.name = getClassNameType(type);
+        return theType;
+    }
+
+    /**
+     * Checks to see if the method gets or sets generic types and updates theType 
+     * as required
+     * @param type
+     * @param method
+     * @param theType
+     * @return true if a generic type was found
+     */
+    private boolean getGenericTypes(Class<?> type, Method method, ReturnType theType) {
+        Class<?>[] interfaces = type.getInterfaces();
+        for (Class<?> cls : interfaces) {
+            if (cls.getName().equals("java.util.Collection")) {
+                Type genericReturnType = method.getGenericReturnType();
+                if ("void".equals(genericReturnType.toString())) {
+                    genericReturnType = method.getGenericParameterTypes()[0];
+                }
+                ParameterizedType pt = (ParameterizedType) genericReturnType;
+                Class t = (Class) pt.getActualTypeArguments()[0];
+                theType.parameterType = getClassNameType(t);
+                if(theType.parameterType.startsWith("java")){
+                    // java types do not extend JavascriptObject
+                    theType.array = true;
+                }else{
+                    theType.list = true;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the new package and class name for a Class.
+     * Appends Jso to any non java.xxxx type
+     * @param type
+     * @return 
+     */
+    private String getClassNameType(Class<?> type) {
         String name = type.getName();
         int lastDot = name.lastIndexOf(".");
         if (lastDot == -1) {
@@ -275,21 +339,6 @@ public class JavaScriptOverlayGenerator {
         if (name.startsWith("java") == false) {
             name = name.replace("$", "_") + "Jso";
         }
-        return name;
-    }
-
-    /**
-     * Changes the first character of the method name to lower case.
-     * @param name
-     * @return 
-     */
-    String getPropertyName(String name) {
-        if (name.startsWith("get") || name.startsWith("set")) {
-            name = name.substring(3);
-        } else if (name.startsWith("is")) {
-            name = name.substring(2);
-        }
-        name = Introspector.decapitalize(name);
         return name;
     }
 

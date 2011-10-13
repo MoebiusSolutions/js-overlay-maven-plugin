@@ -57,18 +57,49 @@ public class JavaScriptOverlayGeneratorTest {
     public void testGetType() throws Exception {
         TestObject to = new TestObject();
         Method stringMethod = to.getClass().getMethod("getString");
-        assertEquals("java.lang.String", gen.getType(stringMethod));
+        assertEquals("java.lang.String", gen.getType(stringMethod).name);
         Method intMethod = to.getClass().getMethod("getInteger");
-        assertEquals("int", gen.getType(intMethod));
+        assertEquals("int", gen.getType(intMethod).name);
         Method xmlDataMethod = to.getClass().getMethod("getXmlDate");
-        assertEquals("date", gen.getType(xmlDataMethod));
+        assertTrue(gen.getType(xmlDataMethod).date);
+        assertEquals("date", gen.getType(xmlDataMethod).name);
         Method testBool = to.getClass().getMethod("isBool");
-        assertEquals("boolean", gen.getType(testBool));
+        assertEquals("boolean", gen.getType(testBool).name);
         Method testObject2Method = to.getClass().getMethod("getTestObject2");
-        assertEquals("com.moesol.test.TestObject2Jso", gen.getType(testObject2Method));
+        assertEquals("com.moesol.test.TestObject2Jso", gen.getType(testObject2Method).name);
+        Method testObjectListGet = to.getClass().getMethod("getList");
+        assertTrue(gen.getType(testObjectListGet).list);
+        assertFalse(gen.getType(testObjectListGet).date);
+        assertTrue(gen.getType(testObjectListGet).list);
+        assertEquals("com.moesol.test.TestObject2Jso", gen.getType(testObjectListGet).parameterType);
+        Method testObjectListSet = to.getClass().getMethod("setList", List.class);
+        assertTrue(gen.getType(testObjectListSet).list);
+        assertEquals("com.moesol.test.TestObject2Jso", gen.getType(testObjectListSet).parameterType);
+        Method testIntArray = to.getClass().getMethod("getIntArray");
+        ReturnType type = gen.getType(testIntArray);
+        assertFalse(type.list);
+        assertTrue(type.array);
+        assertEquals("int", type.parameterType);
+        Method testObjArray = to.getClass().getMethod("getObjArray");
+        type = gen.getType(testObjArray);
+        assertTrue(type.array);
+        assertFalse(type.list);
+        assertEquals("com.moesol.test.TestObject2Jso", type.parameterType);
+        Method testStringList = to.getClass().getMethod("getStringList");
+        type = gen.getType(testStringList);
+        assertTrue(type.array);
+        assertFalse(type.list);
+        assertEquals("java.lang.String", type.parameterType);
+        Method testStringArray = to.getClass().getMethod("getStringArray");
+        type = gen.getType(testStringArray);
+        assertTrue(type.array);
+        assertFalse(type.list);
+        assertEquals("java.lang.String", type.parameterType);
         config.oldPackage = "com.moesol";
         config.newPackage = "com.newname";
-        assertEquals("com.newname.test.TestObject2Jso", gen.getType(testObject2Method));
+        assertEquals("com.newname.test.TestObject2Jso", gen.getType(testObject2Method).name);
+        assertEquals("com.newname.test.TestObject2Jso", gen.getType(testObjectListSet).parameterType);
+        assertEquals("com.newname.test.TestObject2Jso", gen.getType(testObjArray).parameterType);
     }
 
     @Test
@@ -95,14 +126,6 @@ public class JavaScriptOverlayGeneratorTest {
         assertEquals("com.test", ci.getNewPackageName());
         ci.setPackageName("com.test.");
         assertEquals("com.test", ci.getNewPackageName());
-    }
-
-    @Test
-    public void testLowerFirstChar() {
-        assertEquals("bob", gen.getPropertyName("Bob"));
-        assertEquals("BOb", gen.getPropertyName("BOb"));
-        assertEquals("BOB", gen.getPropertyName("BOB"));
-        assertEquals("bob", gen.getPropertyName("bob"));
     }
 
     @Test
