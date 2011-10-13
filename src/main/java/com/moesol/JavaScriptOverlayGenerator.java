@@ -192,9 +192,19 @@ public class JavaScriptOverlayGenerator {
         }
         XmlRootElement rootAnn = cls.getAnnotation(XmlRootElement.class);
         if (rootAnn != null) {
-            ps.printf("  public static native %sJso eval%s(String jsonText) /*-{return eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
-            ps.printf("  public static native com.google.gwt.core.client.JsArray<%sJso> eval%sArray(String jsonText) /*-{return eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
+            // as per http://tools.ietf.org/html/rfc4627
+            ps.printf("  public static native %sJso eval%s(String jsonText) /*-{"
+                    + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
+                    + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
+                    + " && "
+                    + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
+            ps.printf("  public static native com.google.gwt.core.client.JsArray<%sJso> eval%sArray(String jsonText)"
+                    + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
+                    + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
+                    + " && "
+                    + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
         }
+
         ps.printf("}%n");
         ps.close();
         fos.close();
@@ -207,18 +217,14 @@ public class JavaScriptOverlayGenerator {
         ReturnType returnType = getType(method);
         String methodName = method.getName();
         String lowerMethodName = returnType.getPropertyName(methodName);
-        if (lowerMethodName.equals("default")) {
-            config.log.warn("Skipping property with name of Default");
-            return;
-        }
         if (returnType.date) {
-            ps.printf("  public final native java.lang.String %s()/*-{return new String(this.%s);}-*/;%n", methodName, lowerMethodName);
+            ps.printf("  public final native java.lang.String %s()/*-{return new String(this[\"%s\"]);}-*/;%n", methodName, lowerMethodName);
         } else if (returnType.list) {
-            ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this.%s;}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
+            ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
         } else if (returnType.array) {
-            ps.printf("  public final native %s[] %s()/*-{return this.%s;}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
+            ps.printf("  public final native %s[] %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
         } else {
-            ps.printf("  public final native %s %s()/*-{return this.%s;}-*/;%n", returnType.name, methodName, lowerMethodName);
+            ps.printf("  public final native %s %s()/*-{return this[\"%s\"];}-*/;%n", returnType.name, methodName, lowerMethodName);
         }
     }
 
@@ -229,18 +235,16 @@ public class JavaScriptOverlayGenerator {
         ReturnType paramType = getType(method);
         String methodName = method.getName();
         String lowerMethodName = paramType.getPropertyName(methodName);
-        if (lowerMethodName.equals("default")) {
-            config.log.warn("Skipping property with name of Default");
-            return;
-        }
         if (paramType.date) {
-            ps.printf("  public final native void %s(java.lang.String value)/*-{this.%s = value;}-*/;%n", methodName, lowerMethodName);
+            ps.printf("  public final native void %s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
         } else if (paramType.list) {
-            ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this.%s = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
+            ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
         } else if (paramType.array) {
-            ps.printf("  public final native void %s(%s[] value)/*-{this.%s = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
+            ps.printf("  public final native void %s(%s[] value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
         } else {
-            ps.printf("  public final native void %s(%s value)/*-{this.%s = value;}-*/;%n", methodName, paramType.name, lowerMethodName);
+            ps.printf("  public final native void %s(%s value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.name, lowerMethodName);
+
+
         }
     }
 
@@ -255,6 +259,7 @@ public class JavaScriptOverlayGenerator {
     PropertyDescriptor[] getMethods(Class cls) throws IntrospectionException {
         BeanInfo beanInfo = Introspector.getBeanInfo(cls, Object.class);
         PropertyDescriptor[] methodDescriptors = beanInfo.getPropertyDescriptors();
+
         return methodDescriptors;
     }
 
@@ -309,10 +314,10 @@ public class JavaScriptOverlayGenerator {
                 ParameterizedType pt = (ParameterizedType) genericReturnType;
                 Class t = (Class) pt.getActualTypeArguments()[0];
                 theType.parameterType = getClassNameType(t);
-                if(theType.parameterType.startsWith("java")){
+                if (theType.parameterType.startsWith("java")) {
                     // java types do not extend JavascriptObject
                     theType.array = true;
-                }else{
+                } else {
                     theType.list = true;
                 }
                 return true;
