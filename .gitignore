@@ -1,3 +1,5 @@
 /nbproject/
 /target/
 /nbactions.xml
+/activemq.log
+/audit.log

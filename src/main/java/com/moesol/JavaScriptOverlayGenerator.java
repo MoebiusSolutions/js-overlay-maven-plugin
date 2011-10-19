@@ -193,17 +193,19 @@ public class JavaScriptOverlayGenerator {
         XmlRootElement rootAnn = cls.getAnnotation(XmlRootElement.class);
         if (rootAnn != null) {
             // as per http://tools.ietf.org/html/rfc4627
-            ps.printf("  public static native %sJso eval%s(String jsonText) /*-{"
+            ps.printf("  public final static native %sJso eval%s(String jsonText) /*-{"
                     + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
                     + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
                     + " && "
                     + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
-            ps.printf("  public static native com.google.gwt.core.client.JsArray<%sJso> eval%sArray(String jsonText)"
+            ps.printf("  public final static native com.google.gwt.core.client.JsArray<%sJso> eval%sArray(String jsonText) /*-{"
                     + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
                     + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
                     + " && "
                     + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
         }
+        // create a className function
+        ps.printf("  public final native java.lang.String className()/*-{return '%s';}-*/;%n", classInfo.getNewPackageName() + "." + classInfo.getClassName() + "Jso");
 
         ps.printf("}%n");
         ps.close();
