@@ -67,7 +67,7 @@ public class JavaScriptOverlayGenerator {
     private void generate(File targetDir) throws ClassNotFoundException, IOException, IntrospectionException {
         loader = Thread.currentThread().getContextClassLoader();
 
-        String packageName = config.sourcePackage.replace(".", File.separator) + File.separator;
+        String packageName = config.sourcePackage.replace(".", "/") + "/";
         URL packageURL = loader.getResource(packageName);
         String protocol = packageURL.getProtocol();
         List<ClassInfo> list = null;
@@ -89,7 +89,7 @@ public class JavaScriptOverlayGenerator {
     List<ClassInfo> processJar(File targetDir) throws IOException, ClassNotFoundException {
         config.log.debug("Procesing jar file");
         ArrayList<ClassInfo> list = new ArrayList<ClassInfo>();
-        String searchPath = config.sourcePackage.replace(".", "/") + File.separator;
+        String searchPath = config.sourcePackage.replace(".", "/") + "/";
         URL packageURL = loader.getResource(searchPath);
         String jarFileName;
         JarFile jf;
