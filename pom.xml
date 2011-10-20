@@ -5,19 +5,38 @@
     <groupId>com.moesol</groupId>
     <artifactId>js-overlay-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
-    <version>1.0.1</version>
     <name>Generate GWT Javascript overlay types</name>
+    <version>1.0.1</version>
+    <description>Generate GWT Javascript overlay POJOs</description>
+    <url>http://code.google.com/p/js-overlay-maven-plugin</url>
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+    <scm>
+        <url>http://code.google.com/p/js-overlay-maven-plugin/ </url>
+        <connection>http://http://code.google.com/p/js-overlay-maven-plugin/source/browse/</connection>
+    </scm>
+    <developers>
+        <developer>
+            <id>bert</id>
+            <name>Bert Summers</name>
+            <organization>Moebius Solutions, Inc.</organization>
+            <organizationUrl>http://www.moesol.com</organizationUrl>
+            <roles>
+                <role>Developer</role>
+            </roles>
+            <timezone>-8</timezone>
+        </developer>    
+    </developers>
     <dependencies>
         <dependency>
             <groupId>org.apache.maven</groupId>
             <artifactId>maven-plugin-api</artifactId>
             <version>2.2.1</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-io</artifactId>
-            <version>1.3.2</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.maven</groupId>
@@ -34,6 +53,12 @@
             <groupId>org.easymock</groupId>
             <artifactId>easymock</artifactId>
             <version>3.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-io</artifactId>
+            <version>1.3.2</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
@@ -58,10 +83,6 @@
                     <includes>
                         <include>src/**</include>
                     </includes>
-                    <excludes>
-						<!-- exclude files for licensing -->
-						<!-- <exclude>**/example/apache/commons/**</exclude> -->
-                    </excludes>
                     <useDefaultExcludes>true</useDefaultExcludes>
                     <encoding>UTF-8</encoding>
                     <properties>
