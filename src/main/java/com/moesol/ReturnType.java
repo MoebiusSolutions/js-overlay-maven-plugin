@@ -27,6 +27,7 @@ public class ReturnType {
     public boolean date;
     public boolean list;
     public boolean array;
+    public boolean isEnum;
     public String parameterType;
     
      /**

@@ -41,6 +41,37 @@ public class TestObject {
     private String[] stringArray;
 
     /**
+     * @return the innerClassEnum
+     */
+    public InnerEnum getInnerClassEnum() {
+        return innerClassEnum;
+    }
+
+    /**
+     * @param innerClassEnum the innerClassEnum to set
+     */
+    public void setInnerClassEnum(InnerEnum innerClassEnum) {
+        this.innerClassEnum = innerClassEnum;
+    }
+    private enum InnerEnum {ONE, TWO};
+    private InnerEnum innerClassEnum;
+
+    /**
+     * @return the color
+     */
+    public Color getColor() {
+        return color;
+    }
+
+    /**
+     * @param color the color to set
+     */
+    public void setColor(Color color) {
+        this.color = color;
+    }
+    private Color color;
+
+    /**
      * @return the string
      */
     public String getString() {

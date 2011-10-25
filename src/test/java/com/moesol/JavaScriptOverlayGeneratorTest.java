@@ -15,6 +15,7 @@
  */
 package com.moesol;
 
+import java.util.HashMap;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
 import org.easymock.EasyMock;
@@ -140,11 +141,14 @@ public class JavaScriptOverlayGeneratorTest {
         config.outputDirectory = "target/gen-jso";
         gen.setLoader(Thread.currentThread().getContextClassLoader());
         List<ClassInfo> list = gen.processDirectory("com/moesol/test/", new File("target/gen-jso"));
-        assertEquals(3, list.size());
-        ClassInfo ci = list.get(0);
-        assertEquals("com.moesol.test", ci.getNewPackageName());
-        assertEquals("TestObject", ci.getClassName());
-        assertEquals(new File("target/gen-jso/com/moesol/test/TestObjectJso.java"), ci.getOutputFile());
+        assertEquals(5, list.size());
+        HashMap<String,ClassInfo> names = new HashMap<String,ClassInfo>();
+        for (ClassInfo ci : list) {
+            names.put(ci.getClassName(), ci);
+        }
+        assertTrue(names.containsKey("TestObject"));
+        assertEquals("com.moesol.test", names.get("TestObject").getNewPackageName());
+        assertEquals(new File("target/gen-jso/com/moesol/test/TestObjectJso.java"), names.get("TestObject").getOutputFile());
     }
 
     @Test
@@ -187,6 +191,31 @@ public class JavaScriptOverlayGeneratorTest {
         assertEquals(11, list.size());
     }
 
+    @Test
+    public void testEnum() throws Exception{
+        List<ClassInfo> cis = new ArrayList<ClassInfo>();
+        ClassInfo ci = new ClassInfo(config);
+        ci.setClassName("TestObject");
+        ci.setPackageName("com.moesol.test");
+        cis.add(ci);
+        ClassInfo ci2 = new ClassInfo(config);
+        ci2.setClassName("Color");
+        ci2.setPackageName("com.moesol.test");
+        cis.add(ci2);
+        ClassInfo ci3 = new ClassInfo(config);
+        ci3.setClassName("TestObject$InnerEnum");
+        ci3.setPackageName("com.moesol.test");
+        cis.add(ci3);
+        config.outputDirectory = "target/test-enum";
+        if (ci.getOutputDirectory().exists()) {
+            FileUtils.deleteDirectory(ci.getOutputDirectory());
+        }
+        assertTrue("Unable to create output directory", ci.getOutputDirectory().mkdirs());
+        gen.writeJso(cis);
+        assertTrue("Generated file is missing", ci.getOutputFile().exists());
+        assertTrue("Generated file is missing", ci3.getOutputFile().exists());
+        
+    }
     private Log createMockLog() {
         return EasyMock.createNiceMock(Log.class);
     }

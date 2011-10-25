@@ -180,6 +180,10 @@ public class JavaScriptOverlayGenerator {
             return;
         }
         Class<?> cls = classInfo.getOriginalClass();
+        if (cls.isEnum()) {
+            writeJavaEnum(classInfo);
+            return;
+        }
         BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(classInfo.getOutputFile()));
         PrintStream ps = new PrintStream(fos);
         ps.printf("package %s;%n", classInfo.getNewPackageName());
@@ -219,7 +223,10 @@ public class JavaScriptOverlayGenerator {
         ReturnType returnType = getType(method);
         String methodName = method.getName();
         String lowerMethodName = returnType.getPropertyName(methodName);
-        if (returnType.date) {
+        if (returnType.isEnum) {
+            ps.printf("  public final native java.lang.String _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+            ps.printf("  public final %s %s(){%n    return %s.valueOf(_%s());    %n  }%n", returnType.name, methodName, returnType.name, methodName);
+        } else if (returnType.date) {
             ps.printf("  public final native java.lang.String %s()/*-{return new String(this[\"%s\"]);}-*/;%n", methodName, lowerMethodName);
         } else if (returnType.list) {
             ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
@@ -237,7 +244,10 @@ public class JavaScriptOverlayGenerator {
         ReturnType paramType = getType(method);
         String methodName = method.getName();
         String lowerMethodName = paramType.getPropertyName(methodName);
-        if (paramType.date) {
+        if (paramType.isEnum) {
+            ps.printf("  public final native void _%s(%s value)/*-{return this[\"%s\"];}-*/;%n", methodName, paramType.name, lowerMethodName);
+            ps.printf("  public final void %s(%s value){%n    _%s(value.name());    %n  }%n", methodName, paramType.name, methodName);
+        }else if (paramType.date) {
             ps.printf("  public final native void %s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
         } else if (paramType.list) {
             ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
@@ -288,10 +298,16 @@ public class JavaScriptOverlayGenerator {
         if (type.isArray()) {
             theType.parameterType = getClassNameType(type.getComponentType());
             theType.array = true;
+            if (type.getComponentType().isEnum()) {
+                theType.isEnum = true;
+            }
             return theType;
         }
         if (getGenericTypes(type, method, theType)) {
             return theType;
+        }
+        if (type.isEnum()) {
+            theType.isEnum = true;
         }
         theType.name = getClassNameType(type);
         return theType;
@@ -315,6 +331,9 @@ public class JavaScriptOverlayGenerator {
                 }
                 ParameterizedType pt = (ParameterizedType) genericReturnType;
                 Class t = (Class) pt.getActualTypeArguments()[0];
+                if (pt.getClass().isEnum()) {
+                    theType.isEnum = true;
+                }
                 theType.parameterType = getClassNameType(t);
                 if (theType.parameterType.startsWith("java")) {
                     // java types do not extend JavascriptObject
@@ -344,12 +363,45 @@ public class JavaScriptOverlayGenerator {
         ci.setPackageName(name);
         name = ci.getNewPackageName();
         if (name.startsWith("java") == false) {
-            name = name.replace("$", "_") + "Jso";
+            name = name.replace("$", "_");
+            if (!type.isEnum()) {
+                name += "Jso";
+            }
         }
         return name;
     }
 
     void setLoader(ClassLoader classLoader) {
         this.loader = classLoader;
+    }
+
+    /**
+     * Generate a pure java enum implementation
+     * @param classInfo 
+     */
+    private void writeJavaEnum(ClassInfo classInfo) throws ClassNotFoundException, IOException {
+        Class<?> cls = classInfo.getOriginalClass();
+        config.log.info("Found enum type " + cls.getCanonicalName());
+        BufferedOutputStream fos = null;
+        PrintStream ps = null;
+        try {
+            fos = new BufferedOutputStream(new FileOutputStream(classInfo.getOutputFile()));
+            ps = new PrintStream(fos);
+            ps.printf("package %s;%n", classInfo.getNewPackageName());
+            ps.printf("public enum %s {%n", classInfo.getClassName());
+            Object[] enumConstants = cls.getEnumConstants();
+            for (int i = 0; i < enumConstants.length; i++) {
+                Object object = enumConstants[i];
+                ps.print(object);
+                if (i < enumConstants.length - 1) {
+                    ps.print(",");
+                }
+            }
+            ps.printf(";%n}%n");
+        } finally {
+            ps.close();
+            fos.close();
+        }
+        return;
     }
 }

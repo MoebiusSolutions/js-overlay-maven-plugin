@@ -61,7 +61,10 @@ public class ClassInfo {
         return new File(config.outputDirectory, getNewPackageName().replace(".", "/"));
     }
 
-    public File getOutputFile() {
+    public File getOutputFile() throws ClassNotFoundException {
+        if(getOriginalClass().isEnum()){
+            return new File(getOutputDirectory(), className + ".java");
+        }
         return new File(getOutputDirectory(), className + "Jso.java");
     }
 
