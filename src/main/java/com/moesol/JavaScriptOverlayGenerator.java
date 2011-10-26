@@ -224,17 +224,48 @@ public class JavaScriptOverlayGenerator {
         String methodName = method.getName();
         String lowerMethodName = returnType.getPropertyName(methodName);
         if (returnType.isEnum) {
-            ps.printf("  public final native java.lang.String _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
-            ps.printf("  public final %s %s(){%n    return %s.valueOf(_%s());    %n  }%n", returnType.name, methodName, returnType.name, methodName);
-        } else if (returnType.date) {
+            if(returnType.isArray){
+                readEnumList( ps, returnType, methodName, lowerMethodName);
+            }else {
+                ps.printf("  public final native java.lang.String _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+                ps.printf("  public final %s %s(){%n    return %s.valueOf(_%s());    %n  }%n", returnType.name, methodName, returnType.name, methodName);
+            }
+        } else if (returnType.isDate) {
             ps.printf("  public final native java.lang.String %s()/*-{return new String(this[\"%s\"]);}-*/;%n", methodName, lowerMethodName);
-        } else if (returnType.list) {
+        } else if (returnType.isList) {
+            if(returnType.parameterTypeIsEnum){
+                readEnumList( ps, returnType, methodName, lowerMethodName);
+            }else {
             ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
-        } else if (returnType.array) {
+            }
+        } else if (returnType.isArray) {
             ps.printf("  public final native %s[] %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
         } else {
             ps.printf("  public final native %s %s()/*-{return this[\"%s\"];}-*/;%n", returnType.name, methodName, lowerMethodName);
         }
+    }
+
+    private void readEnumList(PrintStream ps, ReturnType returnType, String methodName, String lowerMethodName) {
+        ps.printf("  public final native java.lang.String[] _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+        ps.printf("  public final %s[] %s(){%n"
+                + "    java.lang.String[] data = _%s();%n"
+                + "    %s[] retData = new %s[data.length];%n"
+                + "    for(int i=0; i<data.length; i++){%n"
+                + "      retData[i] = %s.valueOf(data[i]);%n"
+                + "    }%n"
+                + "    return retData;%n  }%n"
+                , returnType.parameterType, methodName, methodName, returnType.parameterType, returnType.parameterType, returnType.parameterType);
+    }
+
+    private void writeEnumList(PrintStream ps, ReturnType type, String methodName, String lowerMethodName) {
+        ps.printf("  public final native void _%s(java.lang.String[] value )/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
+        ps.printf("  public final void %s(%s[] value){%n"
+                + "    java.lang.String[] data = new String[value.length];%n"
+                + "    for(int i=0; i<data.length; i++){%n"
+                + "      data[i] = value[i].name();%n"
+                + "    }%n"
+                + "    _%s(data);%n  }%n"
+                , methodName, type.parameterType, methodName);
     }
 
     void writeWriteFunction(Method method, PrintStream ps) {
@@ -245,13 +276,21 @@ public class JavaScriptOverlayGenerator {
         String methodName = method.getName();
         String lowerMethodName = paramType.getPropertyName(methodName);
         if (paramType.isEnum) {
-            ps.printf("  public final native void _%s(%s value)/*-{return this[\"%s\"];}-*/;%n", methodName, paramType.name, lowerMethodName);
-            ps.printf("  public final void %s(%s value){%n    _%s(value.name());    %n  }%n", methodName, paramType.name, methodName);
-        }else if (paramType.date) {
+             if(paramType.isArray){
+                writeEnumList( ps, paramType, methodName, lowerMethodName);
+            }else {
+                ps.printf("  public final native void _%s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
+                ps.printf("  public final void %s(%s value){%n    _%s(value.name());    %n  }%n", methodName, paramType.name, methodName);
+             }
+        }else if (paramType.isDate) {
             ps.printf("  public final native void %s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
-        } else if (paramType.list) {
-            ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
-        } else if (paramType.array) {
+        } else if (paramType.isList) {
+            if(paramType.parameterTypeIsEnum){
+                writeEnumList( ps, paramType, methodName, lowerMethodName);
+            }else {
+                ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
+            }
+        } else if (paramType.isArray) {
             ps.printf("  public final native void %s(%s[] value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
         } else {
             ps.printf("  public final native void %s(%s value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.name, lowerMethodName);
@@ -292,12 +331,15 @@ public class JavaScriptOverlayGenerator {
         }
         if (type.getName().equals("javax.xml.datatype.XMLGregorianCalendar")) {
             theType.name = "date";
-            theType.date = true;
+            theType.isDate = true;
             return theType;
         }
         if (type.isArray()) {
             theType.parameterType = getClassNameType(type.getComponentType());
-            theType.array = true;
+            if(type.getComponentType().isEnum()){
+                theType.parameterTypeIsEnum = true;
+            }
+            theType.isArray = true;
             if (type.getComponentType().isEnum()) {
                 theType.isEnum = true;
             }
@@ -335,11 +377,14 @@ public class JavaScriptOverlayGenerator {
                     theType.isEnum = true;
                 }
                 theType.parameterType = getClassNameType(t);
+                if(t.isEnum()){
+                    theType.parameterTypeIsEnum = true;
+                }
                 if (theType.parameterType.startsWith("java")) {
                     // java types do not extend JavascriptObject
-                    theType.array = true;
+                    theType.isArray = true;
                 } else {
-                    theType.list = true;
+                    theType.isList = true;
                 }
                 return true;
             }
@@ -381,7 +426,6 @@ public class JavaScriptOverlayGenerator {
      */
     private void writeJavaEnum(ClassInfo classInfo) throws ClassNotFoundException, IOException {
         Class<?> cls = classInfo.getOriginalClass();
-        config.log.info("Found enum type " + cls.getCanonicalName());
         BufferedOutputStream fos = null;
         PrintStream ps = null;
         try {

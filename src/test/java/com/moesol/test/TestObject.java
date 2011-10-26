@@ -39,6 +39,8 @@ public class TestObject {
     private TestObject2[] objArray;
     private List<String> stringList;
     private String[] stringArray;
+    private List<Color> colorList;
+    private Color[] colorArray;
 
     /**
      * @return the innerClassEnum
@@ -52,6 +54,34 @@ public class TestObject {
      */
     public void setInnerClassEnum(InnerEnum innerClassEnum) {
         this.innerClassEnum = innerClassEnum;
+    }
+
+    /**
+     * @return the colorList
+     */
+    public List<Color> getColorList() {
+        return colorList;
+    }
+
+    /**
+     * @param colorList the colorList to set
+     */
+    public void setColorList(List<Color> colorList) {
+        this.colorList = colorList;
+    }
+
+    /**
+     * @return the colorArray
+     */
+    public Color[] getColorArray() {
+        return colorArray;
+    }
+
+    /**
+     * @param colorArray the colorArray to set
+     */
+    public void setColorArray(Color[] colorArray) {
+        this.colorArray = colorArray;
     }
     private enum InnerEnum {ONE, TWO};
     private InnerEnum innerClassEnum;

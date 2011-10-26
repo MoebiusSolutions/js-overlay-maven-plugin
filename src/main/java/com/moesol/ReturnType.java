@@ -24,11 +24,12 @@ import java.beans.Introspector;
 public class ReturnType {
 
     public String name;
-    public boolean date;
-    public boolean list;
-    public boolean array;
+    public boolean isDate;
+    public boolean isList;
+    public boolean isArray;
     public boolean isEnum;
     public String parameterType;
+    public boolean parameterTypeIsEnum;
     
      /**
      * Changes the first character of the method name to lower case.

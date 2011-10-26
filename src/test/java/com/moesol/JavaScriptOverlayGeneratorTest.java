@@ -15,6 +15,7 @@
  */
 package com.moesol;
 
+import com.sun.tools.javac.Main;
 import java.util.HashMap;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
@@ -40,7 +41,7 @@ public class JavaScriptOverlayGeneratorTest {
 
     JavaScriptOverlayGenerator gen;
     Config config;
-    
+
     @Before
     public void setup() {
         config = new Config();
@@ -62,39 +63,39 @@ public class JavaScriptOverlayGeneratorTest {
         Method intMethod = to.getClass().getMethod("getInteger");
         assertEquals("int", gen.getType(intMethod).name);
         Method xmlDataMethod = to.getClass().getMethod("getXmlDate");
-        assertTrue(gen.getType(xmlDataMethod).date);
+        assertTrue(gen.getType(xmlDataMethod).isDate);
         assertEquals("date", gen.getType(xmlDataMethod).name);
         Method testBool = to.getClass().getMethod("isBool");
         assertEquals("boolean", gen.getType(testBool).name);
         Method testObject2Method = to.getClass().getMethod("getTestObject2");
         assertEquals("com.moesol.test.TestObject2Jso", gen.getType(testObject2Method).name);
         Method testObjectListGet = to.getClass().getMethod("getList");
-        assertTrue(gen.getType(testObjectListGet).list);
-        assertFalse(gen.getType(testObjectListGet).date);
-        assertTrue(gen.getType(testObjectListGet).list);
+        assertTrue(gen.getType(testObjectListGet).isList);
+        assertFalse(gen.getType(testObjectListGet).isDate);
+        assertTrue(gen.getType(testObjectListGet).isList);
         assertEquals("com.moesol.test.TestObject2Jso", gen.getType(testObjectListGet).parameterType);
         Method testObjectListSet = to.getClass().getMethod("setList", List.class);
-        assertTrue(gen.getType(testObjectListSet).list);
+        assertTrue(gen.getType(testObjectListSet).isList);
         assertEquals("com.moesol.test.TestObject2Jso", gen.getType(testObjectListSet).parameterType);
         Method testIntArray = to.getClass().getMethod("getIntArray");
         ReturnType type = gen.getType(testIntArray);
-        assertFalse(type.list);
-        assertTrue(type.array);
+        assertFalse(type.isList);
+        assertTrue(type.isArray);
         assertEquals("int", type.parameterType);
         Method testObjArray = to.getClass().getMethod("getObjArray");
         type = gen.getType(testObjArray);
-        assertTrue(type.array);
-        assertFalse(type.list);
+        assertTrue(type.isArray);
+        assertFalse(type.isList);
         assertEquals("com.moesol.test.TestObject2Jso", type.parameterType);
         Method testStringList = to.getClass().getMethod("getStringList");
         type = gen.getType(testStringList);
-        assertTrue(type.array);
-        assertFalse(type.list);
+        assertTrue(type.isArray);
+        assertFalse(type.isList);
         assertEquals("java.lang.String", type.parameterType);
         Method testStringArray = to.getClass().getMethod("getStringArray");
         type = gen.getType(testStringArray);
-        assertTrue(type.array);
-        assertFalse(type.list);
+        assertTrue(type.isArray);
+        assertFalse(type.isList);
         assertEquals("java.lang.String", type.parameterType);
         config.oldPackage = "com.moesol";
         config.newPackage = "com.newname";
@@ -142,7 +143,7 @@ public class JavaScriptOverlayGeneratorTest {
         gen.setLoader(Thread.currentThread().getContextClassLoader());
         List<ClassInfo> list = gen.processDirectory("com/moesol/test/", new File("target/gen-jso"));
         assertEquals(5, list.size());
-        HashMap<String,ClassInfo> names = new HashMap<String,ClassInfo>();
+        HashMap<String, ClassInfo> names = new HashMap<String, ClassInfo>();
         for (ClassInfo ci : list) {
             names.put(ci.getClassName(), ci);
         }
@@ -181,18 +182,18 @@ public class JavaScriptOverlayGeneratorTest {
         config.outputDirectory = "target/gen-jar";
         List<ClassInfo> list = gen.processJar(new File("target/gen-jar"));
         assertEquals(11, list.size());
-        
+
         outputDir.mkdirs();
         list = gen.processJar(new File("target/gen-jar"));
         assertEquals(0, list.size());
-        
+
         outputDir.setLastModified(0);
         list = gen.processJar(new File("target/gen-jar"));
         assertEquals(11, list.size());
     }
 
     @Test
-    public void testEnum() throws Exception{
+    public void testEnum() throws Exception {
         List<ClassInfo> cis = new ArrayList<ClassInfo>();
         ClassInfo ci = new ClassInfo(config);
         ci.setClassName("TestObject");
@@ -213,9 +214,56 @@ public class JavaScriptOverlayGeneratorTest {
         assertTrue("Unable to create output directory", ci.getOutputDirectory().mkdirs());
         gen.writeJso(cis);
         assertTrue("Generated file is missing", ci.getOutputFile().exists());
+        assertTrue("Generated file is missing", ci2.getOutputFile().exists());
         assertTrue("Generated file is missing", ci3.getOutputFile().exists());
-        
     }
+
+    @Test
+    public void testCompileGenSource() throws Exception {
+        List<ClassInfo> cis = new ArrayList<ClassInfo>();
+        ClassInfo ci = new ClassInfo(config);
+        ci.setClassName("TestObject");
+        ci.setPackageName("com.moesol.test");
+        cis.add(ci);
+        ci = new ClassInfo(config);
+        ci.setClassName("Color");
+        ci.setPackageName("com.moesol.test");
+        cis.add(ci);
+        ci = new ClassInfo(config);
+        ci.setClassName("TestObject$InnerEnum");
+        ci.setPackageName("com.moesol.test");
+        cis.add(ci);
+        ci = new ClassInfo(config);
+        ci.setClassName("TestObject2");
+        ci.setPackageName("com.moesol.test");
+        cis.add(ci);
+        config.outputDirectory = "target/test-compile";
+        if (ci.getOutputDirectory().exists()) {
+            FileUtils.deleteDirectory(ci.getOutputDirectory());
+        }
+        assertTrue("Unable to create output directory", ci.getOutputDirectory().mkdirs());
+        gen.writeJso(cis);
+
+        File classes = new File("target.test-enum-classes");
+        if(classes.exists()){
+            FileUtils.deleteDirectory(classes);
+        }
+        classes.mkdirs();
+        String cp = System.getProperty("java.class.path");
+        System.out.println(cp);
+        String[] args = new String[]{
+            "-cp", cp, 
+            "target/test-compile/com/moesol/test/Color.java"
+            ,"target/test-compile/com/moesol/test/TestObjectJso.java"
+            ,"target/test-compile/com/moesol/test/TestObject_InnerEnum.java"
+            ,"target/test-compile/com/moesol/test/TestObject2Jso.java"
+        };
+        int status = Main.compile(args);
+        System.out.println(status);
+        System.out.println(new File(".").getAbsoluteFile());
+        assertEquals(0, status);
+    }
+
     private Log createMockLog() {
         return EasyMock.createNiceMock(Log.class);
     }
