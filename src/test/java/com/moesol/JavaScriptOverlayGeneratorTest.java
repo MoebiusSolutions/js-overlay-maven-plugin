@@ -258,8 +258,6 @@ public class JavaScriptOverlayGeneratorTest {
             ,"target/test-compile/com/moesol/test/TestObject2Jso.java"
         };
         int status = Main.compile(args);
-        System.out.println(status);
-        System.out.println(new File(".").getAbsoluteFile());
         assertEquals(0, status);
     }
 
