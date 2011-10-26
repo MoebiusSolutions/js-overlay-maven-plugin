@@ -244,7 +244,7 @@ public class JavaScriptOverlayGeneratorTest {
         assertTrue("Unable to create output directory", ci.getOutputDirectory().mkdirs());
         gen.writeJso(cis);
 
-        File classes = new File("target.test-enum-classes");
+        File classes = new File("target/test-enum-classes");
         if(classes.exists()){
             FileUtils.deleteDirectory(classes);
         }

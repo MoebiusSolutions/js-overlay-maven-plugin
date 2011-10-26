@@ -4,3 +4,4 @@
 /activemq.log
 /audit.log
 .svn
+/target.test-enum-classes/
