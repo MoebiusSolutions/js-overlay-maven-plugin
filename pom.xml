@@ -6,7 +6,7 @@
     <artifactId>js-overlay-maven-plugin</artifactId>
     <packaging>maven-plugin</packaging>
     <name>Generate GWT Javascript overlay types</name>
-    <version>1.0.2-SNAPSHOT</version>
+    <version>1.0.2</version>
     <description>Generate GWT Javascript overlay POJOs</description>
     <url>http://code.google.com/p/js-overlay-maven-plugin</url>
     <licenses>
