@@ -250,7 +250,6 @@ public class JavaScriptOverlayGeneratorTest {
         }
         classes.mkdirs();
         String cp = System.getProperty("java.class.path");
-        System.out.println(cp);
         String[] args = new String[]{
             "-cp", cp, 
             "target/test-compile/com/moesol/test/Color.java"
