@@ -15,7 +15,6 @@
  */
 package com.moesol;
 
-import com.sun.tools.javac.Main;
 import java.util.HashMap;
 import java.beans.IntrospectionException;
 import java.beans.PropertyDescriptor;
@@ -26,6 +25,8 @@ import com.moesol.test.TestObject2;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import org.apache.maven.plugin.logging.Log;
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.Before;
@@ -244,11 +245,7 @@ public class JavaScriptOverlayGeneratorTest {
         assertTrue("Unable to create output directory", ci.getOutputDirectory().mkdirs());
         gen.writeJso(cis);
 
-        File classes = new File("target/test-enum-classes");
-        if(classes.exists()){
-            FileUtils.deleteDirectory(classes);
-        }
-        classes.mkdirs();
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         String cp = System.getProperty("java.class.path");
         String[] args = new String[]{
             "-cp", cp, 
@@ -257,8 +254,9 @@ public class JavaScriptOverlayGeneratorTest {
             ,"target/test-compile/com/moesol/test/TestObject_InnerEnum.java"
             ,"target/test-compile/com/moesol/test/TestObject2Jso.java"
         };
-        int status = Main.compile(args);
+        int status = compiler.run(null, null, null, args);
         assertEquals(0, status);
+        assertEquals(8, new File("target/test-compile/com/moesol/test").list().length);
     }
 
     private Log createMockLog() {
