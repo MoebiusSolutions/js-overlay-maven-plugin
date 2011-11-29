@@ -101,6 +101,7 @@ public class JavaScriptOverlayGenerator {
         jarFileName = jarFileName.substring(5, jarFileName.indexOf("!"));
         long jarTime = new File(jarFileName).lastModified();
         File genDirectory = new File(config.outputDirectory);
+        jarFileName = jarFileName.replaceAll("%20", " ");
         long genTime = genDirectory.lastModified();
         if (genTime >= jarTime) {
             config.log.info("Generated source up to date, skipping");
