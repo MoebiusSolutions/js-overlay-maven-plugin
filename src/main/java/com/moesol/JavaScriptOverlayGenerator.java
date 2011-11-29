@@ -212,7 +212,7 @@ public class JavaScriptOverlayGenerator {
         // create a className function
         ps.printf("  public final native java.lang.String className()/*-{return '%s';}-*/;%n", classInfo.getNewPackageName() + "." + classInfo.getClassName() + "Jso");
         // create getJson function
-        ps.printf("  public String getJsonString(){%n    return new com.google.gwt.json.client.JSONObject(this).toString();%n  }%n");
+        ps.printf("  public final String getJsonString(){%n    return new com.google.gwt.json.client.JSONObject(this).toString();%n  }%n");
 
         ps.printf("}%n");
         ps.close();
