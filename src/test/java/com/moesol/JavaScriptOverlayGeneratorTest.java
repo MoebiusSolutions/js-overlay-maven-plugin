@@ -177,12 +177,12 @@ public class JavaScriptOverlayGeneratorTest {
     @Test
     public void testProcessJar() throws Exception {
         gen.setLoader(Thread.currentThread().getContextClassLoader());
-        config.sourcePackage = "org.apache.commons.io.output";
+        config.sourcePackage = "org.easymock";
         File outputDir = new File("target/gen-jar/");
         FileUtils.deleteDirectory(outputDir);
         config.outputDirectory = "target/gen-jar";
         List<ClassInfo> list = gen.processJar(new File("target/gen-jar"));
-        assertEquals(11, list.size());
+        assertEquals(83, list.size());
 
         outputDir.mkdirs();
         list = gen.processJar(new File("target/gen-jar"));
@@ -190,7 +190,7 @@ public class JavaScriptOverlayGeneratorTest {
 
         outputDir.setLastModified(0);
         list = gen.processJar(new File("target/gen-jar"));
-        assertEquals(11, list.size());
+        assertEquals(83, list.size());
     }
 
     @Test
