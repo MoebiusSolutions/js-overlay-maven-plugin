@@ -37,6 +37,7 @@ public class JavascriptOverlayMojo extends AbstractMojo {
         config.sourcePackage = sourcePackage;
         config.outputDirectory = outputDirectory;
         config.log = getLog();
+        config.generateInterface = generateInterface;
         JavaScriptOverlayGenerator gen = new JavaScriptOverlayGenerator(config);
         try {
             gen.generate();
@@ -82,4 +83,11 @@ public class JavascriptOverlayMojo extends AbstractMojo {
      * @required
      */
     private MavenProject project;
+    /**
+     * Generate interfaces for each Jso object.
+     *
+     * @parameter expression="${overlay.generateInterface}" default-value="true"
+     */
+    private boolean generateInterface;
+
 }

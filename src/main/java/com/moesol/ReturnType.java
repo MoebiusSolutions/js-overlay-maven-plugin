@@ -23,12 +23,34 @@ import java.beans.Introspector;
  */
 public class ReturnType {
 
+    /**
+     * Name of the return type
+     */
     public String name;
+    
+    /**
+     * True if this type is a Date
+     */
     public boolean isDate;
+    /**
+     * True if this type is a Java List
+     */
     public boolean isList;
+    /**
+     * True if this type is a primitive array
+     */
     public boolean isArray;
+    /**
+     * True if this type is an Enum
+     */
     public boolean isEnum;
+    /**
+     * True if this type is a Parameter type, such as generics
+     */
     public String parameterType;
+    /**
+     * True if the parameter type is an Enum
+     */
     public boolean parameterTypeIsEnum;
     
      /**

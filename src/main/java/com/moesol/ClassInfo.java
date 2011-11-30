@@ -28,10 +28,18 @@ public class ClassInfo {
     private String origClassName;
     private final Config config;
 
+    /**
+     * Constructor
+     * @param config 
+     */
     public ClassInfo(Config config){
         this.config = config;
     }
     
+    /**
+     * Sets the package name for this type
+     * @param packageName 
+     */
     public void setPackageName(String packageName) {
         this.pckageName = packageName.replace("/", ".");
         int lastChar = this.pckageName.length() - 1;
@@ -40,6 +48,10 @@ public class ClassInfo {
         }
     }
 
+    /**
+     * Sets the classname for this type
+     * @param clsName 
+     */
     public void setClassName(String clsName){
         origClassName = clsName;
         className = clsName.replace("-", "_").replace("$", "_");
@@ -57,10 +69,19 @@ public class ClassInfo {
         return pak;
     }
 
+    /**
+     * Returns the directory to write this class to.
+     * @return 
+     */
     public File getOutputDirectory() {
         return new File(config.outputDirectory, getNewPackageName().replace(".", "/"));
     }
 
+    /**
+     * Returns a {@link File} for the class to be generated
+     * @return
+     * @throws ClassNotFoundException 
+     */
     public File getOutputFile() throws ClassNotFoundException {
         if(getOriginalClass().isEnum()){
             return new File(getOutputDirectory(), className + ".java");
@@ -68,14 +89,27 @@ public class ClassInfo {
         return new File(getOutputDirectory(), className + "Jso.java");
     }
 
+    /**
+     * The source class being generated
+     * @return
+     * @throws ClassNotFoundException 
+     */
     public Class getOriginalClass() throws ClassNotFoundException {
         return Class.forName(getOriginalPackage() + "." + origClassName);
     }
 
+    /**
+     * The original package
+     * @return 
+     */
     private String getOriginalPackage() {
         return pckageName;
     }
 
+    /**
+     * The class name
+     * @return 
+     */
     public String getClassName() {
         return className;
     }

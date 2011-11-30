@@ -24,9 +24,28 @@ import org.apache.maven.plugin.logging.Log;
  */
 public class Config {
 
+    /**
+     * Part of the old package name to be replaced
+     */
     public String oldPackage;
+    /**
+     * The new package name to generate to
+     */
     public String newPackage;
+    /**
+     * The source package to generate from
+     */
     public String sourcePackage;
+    /**
+     * The directory to output the generated source
+     */
     public String outputDirectory;
+    /**
+     * Log object used by maven
+     */
     public Log log;
+    /**
+     * True if interfaces should be generated for all overlay objects
+     */
+    public boolean generateInterface;
 }

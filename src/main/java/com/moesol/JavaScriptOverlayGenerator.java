@@ -99,9 +99,9 @@ public class JavaScriptOverlayGenerator {
         // build jar file name
         jarFileName = packageURL.getFile();
         jarFileName = jarFileName.substring(5, jarFileName.indexOf("!"));
+        jarFileName = jarFileName.replaceAll("%20", " ");
         long jarTime = new File(jarFileName).lastModified();
         File genDirectory = new File(config.outputDirectory);
-        jarFileName = jarFileName.replaceAll("%20", " ");
         long genTime = genDirectory.lastModified();
         if (genTime >= jarTime) {
             config.log.info("Generated source up to date, skipping");
@@ -175,6 +175,14 @@ public class JavaScriptOverlayGenerator {
         }
     }
 
+    /**
+     * Write java class file to disk
+     * 
+     * @param classInfo
+     * @throws ClassNotFoundException
+     * @throws IOException
+     * @throws IntrospectionException 
+     */
     void writeJso(ClassInfo classInfo) throws ClassNotFoundException, IOException, IntrospectionException {
         if (classInfo.getClassName().equals("package_info")) {
             config.log.info("Skipping class package_info");
@@ -185,12 +193,22 @@ public class JavaScriptOverlayGenerator {
             writeJavaEnum(classInfo);
             return;
         }
+        PropertyDescriptor[] methods = getMethods(cls);
+        if (config.generateInterface) {
+            BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(new File(classInfo.getOutputDirectory(), "I" + classInfo.getClassName() + ".java")));
+            PrintStream ps = new PrintStream(fos);
+            ps.printf("package %s;%n", classInfo.getNewPackageName());
+            ps.printf("public interface I%s{%n", classInfo.getClassName());
+            generateInterface(methods, ps);
+            ps.printf("}%n");
+            ps.close();
+            fos.close();
+        }
         BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(classInfo.getOutputFile()));
         PrintStream ps = new PrintStream(fos);
         ps.printf("package %s;%n", classInfo.getNewPackageName());
-        ps.printf("public class %sJso extends com.google.gwt.core.client.JavaScriptObject {%n", classInfo.getClassName());
+        ps.printf("public class %sJso extends com.google.gwt.core.client.JavaScriptObject %s{%n", classInfo.getClassName(), config.generateInterface ? "implements I" + classInfo.getClassName() : "");
         ps.printf("  protected %sJso(){}%n", classInfo.getClassName());
-        PropertyDescriptor[] methods = getMethods(cls);
         for (PropertyDescriptor propDescriptor : methods) {
             writeReadFunction(propDescriptor.getReadMethod(), ps);
             writeWriteFunction(propDescriptor.getWriteMethod(), ps);
@@ -210,15 +228,21 @@ public class JavaScriptOverlayGenerator {
                     + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
         }
         // create a className function
-        ps.printf("  public final native java.lang.String className()/*-{return '%s';}-*/;%n", classInfo.getNewPackageName() + "." + classInfo.getClassName() + "Jso");
+        ps.printf("  public final native java.lang.String _getClassName()/*-{return '%s';}-*/;%n", classInfo.getNewPackageName() + "." + classInfo.getClassName() + "Jso");
         // create getJson function
-        ps.printf("  public final String getJsonString(){%n    return new com.google.gwt.json.client.JSONObject(this).toString();%n  }%n");
+        ps.printf("  public final String _getJsonString(){%n    return new com.google.gwt.json.client.JSONObject(this).toString();%n  }%n");
 
         ps.printf("}%n");
         ps.close();
         fos.close();
     }
 
+    /**
+     * Write getter methods
+     * 
+     * @param method
+     * @param ps 
+     */
     void writeReadFunction(Method method, PrintStream ps) {
         if (method == null) {
             return;
@@ -227,19 +251,19 @@ public class JavaScriptOverlayGenerator {
         String methodName = method.getName();
         String lowerMethodName = returnType.getPropertyName(methodName);
         if (returnType.isEnum) {
-            if(returnType.isArray){
-                readEnumList( ps, returnType, methodName, lowerMethodName);
-            }else {
+            if (returnType.isArray) {
+                readEnumList(ps, returnType, methodName, lowerMethodName);
+            } else {
                 ps.printf("  public final native java.lang.String _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
                 ps.printf("  public final %s %s(){%n    return %s.valueOf(_%s());    %n  }%n", returnType.name, methodName, returnType.name, methodName);
             }
         } else if (returnType.isDate) {
             ps.printf("  public final native java.lang.String %s()/*-{return new String(this[\"%s\"]);}-*/;%n", methodName, lowerMethodName);
         } else if (returnType.isList) {
-            if(returnType.parameterTypeIsEnum){
-                readEnumList( ps, returnType, methodName, lowerMethodName);
-            }else {
-            ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
+            if (returnType.parameterTypeIsEnum) {
+                readEnumList(ps, returnType, methodName, lowerMethodName);
+            } else {
+                ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
             }
         } else if (returnType.isArray) {
             ps.printf("  public final native %s[] %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
@@ -248,6 +272,14 @@ public class JavaScriptOverlayGenerator {
         }
     }
 
+    /**
+     * Write the method for getting enums.
+     * 
+     * @param ps
+     * @param returnType
+     * @param methodName
+     * @param lowerMethodName 
+     */
     private void readEnumList(PrintStream ps, ReturnType returnType, String methodName, String lowerMethodName) {
         ps.printf("  public final native java.lang.String[] _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
         ps.printf("  public final %s[] %s(){%n"
@@ -256,10 +288,17 @@ public class JavaScriptOverlayGenerator {
                 + "    for(int i=0; i<data.length; i++){%n"
                 + "      retData[i] = %s.valueOf(data[i]);%n"
                 + "    }%n"
-                + "    return retData;%n  }%n"
-                , returnType.parameterType, methodName, methodName, returnType.parameterType, returnType.parameterType, returnType.parameterType);
+                + "    return retData;%n  }%n", returnType.parameterType, methodName, methodName, returnType.parameterType, returnType.parameterType, returnType.parameterType);
     }
 
+    /**
+     * Write the methods for setting enums.
+     * 
+     * @param ps
+     * @param type
+     * @param methodName
+     * @param lowerMethodName 
+     */
     private void writeEnumList(PrintStream ps, ReturnType type, String methodName, String lowerMethodName) {
         ps.printf("  public final native void _%s(java.lang.String[] value )/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
         ps.printf("  public final void %s(%s[] value){%n"
@@ -267,10 +306,15 @@ public class JavaScriptOverlayGenerator {
                 + "    for(int i=0; i<data.length; i++){%n"
                 + "      data[i] = value[i].name();%n"
                 + "    }%n"
-                + "    _%s(data);%n  }%n"
-                , methodName, type.parameterType, methodName);
+                + "    _%s(data);%n  }%n", methodName, type.parameterType, methodName);
     }
 
+    /**
+     * Write the setter method for all settable properties.
+     * 
+     * @param method
+     * @param ps 
+     */
     void writeWriteFunction(Method method, PrintStream ps) {
         if (method == null) {
             return;
@@ -279,26 +323,24 @@ public class JavaScriptOverlayGenerator {
         String methodName = method.getName();
         String lowerMethodName = paramType.getPropertyName(methodName);
         if (paramType.isEnum) {
-             if(paramType.isArray){
-                writeEnumList( ps, paramType, methodName, lowerMethodName);
-            }else {
+            if (paramType.isArray) {
+                writeEnumList(ps, paramType, methodName, lowerMethodName);
+            } else {
                 ps.printf("  public final native void _%s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
                 ps.printf("  public final void %s(%s value){%n    _%s(value.name());    %n  }%n", methodName, paramType.name, methodName);
-             }
-        }else if (paramType.isDate) {
+            }
+        } else if (paramType.isDate) {
             ps.printf("  public final native void %s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
         } else if (paramType.isList) {
-            if(paramType.parameterTypeIsEnum){
-                writeEnumList( ps, paramType, methodName, lowerMethodName);
-            }else {
+            if (paramType.parameterTypeIsEnum) {
+                writeEnumList(ps, paramType, methodName, lowerMethodName);
+            } else {
                 ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
             }
         } else if (paramType.isArray) {
             ps.printf("  public final native void %s(%s[] value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
         } else {
             ps.printf("  public final native void %s(%s value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.name, lowerMethodName);
-
-
         }
     }
 
@@ -339,7 +381,7 @@ public class JavaScriptOverlayGenerator {
         }
         if (type.isArray()) {
             theType.parameterType = getClassNameType(type.getComponentType());
-            if(type.getComponentType().isEnum()){
+            if (type.getComponentType().isEnum()) {
                 theType.parameterTypeIsEnum = true;
             }
             theType.isArray = true;
@@ -380,7 +422,7 @@ public class JavaScriptOverlayGenerator {
                     theType.isEnum = true;
                 }
                 theType.parameterType = getClassNameType(t);
-                if(t.isEnum()){
+                if (t.isEnum()) {
                     theType.parameterTypeIsEnum = true;
                 }
                 if (theType.parameterType.startsWith("java")) {
@@ -450,5 +492,60 @@ public class JavaScriptOverlayGenerator {
             fos.close();
         }
         return;
+    }
+
+    /**
+     * Write the interface class
+     * 
+     * @param methods
+     * @param ps 
+     */
+    private void generateInterface(PropertyDescriptor[] methods, PrintStream ps) {
+        ps.printf("  java.lang.String _getJsonString();%n");
+        ps.printf("  java.lang.String _getClassName();%n");
+        for (PropertyDescriptor propertyDescriptor : methods) {
+            Method method = propertyDescriptor.getReadMethod();
+            if (method != null) {
+                ReturnType returnType = getType(method);
+                String methodName = method.getName();
+                if (returnType.isArray) {
+                    ps.printf("  %s[] %s();%n", returnType.parameterType, methodName);
+                } else if (returnType.isDate) {
+                    ps.printf("  java.lang.String %s();%n", methodName);
+                } else if (returnType.isList) {
+                    if (returnType.parameterTypeIsEnum) {
+                        ps.printf("  %s[] %s();%n", returnType.parameterType, methodName);
+                    } else {
+                        ps.printf("  com.google.gwt.core.client.JsArray<%s> %s();%n", returnType.parameterType, methodName);
+                    }
+                } else {
+                    ps.printf("  %s %s();%n", returnType.name, methodName);
+                }
+            }
+            method = propertyDescriptor.getWriteMethod();
+            if (method != null) {
+                ReturnType paramType = getType(method);
+                String methodName = method.getName();
+                if (paramType.isEnum) {
+                    if (paramType.isArray) {
+                        ps.printf("  void %s(%s[] value);%n", methodName, paramType.parameterType);
+                    } else {
+                        ps.printf("  void %s(%s value);%n", methodName, paramType.name);
+                    }
+                } else if (paramType.isDate) {
+                    ps.printf("  void %s(java.lang.String value);%n", methodName);
+                } else if (paramType.isList) {
+                    if (paramType.parameterTypeIsEnum) {
+                        ps.printf("  void %s(%s[] value);%n", methodName, paramType.parameterType);
+                    } else {
+                        ps.printf("  void %s(com.google.gwt.core.client.JsArray<%s> value);%n", methodName, paramType.parameterType);
+                    }
+                } else if (paramType.isArray) {
+                    ps.printf("  void %s(%s[] value);%n", methodName, paramType.parameterType);
+                } else {
+                    ps.printf("  void %s(%s value);%n", methodName, paramType.name);
+                }
+            }
+        }
     }
 }
