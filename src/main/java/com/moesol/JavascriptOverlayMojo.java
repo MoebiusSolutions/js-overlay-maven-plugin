@@ -32,12 +32,12 @@ public class JavascriptOverlayMojo extends AbstractMojo {
     @Override
     public void execute() throws MojoExecutionException {
         Config config = new Config();
-        config.newPackage = toPackage;
-        config.oldPackage = fromPackage;
-        config.sourcePackage = sourcePackage;
-        config.outputDirectory = outputDirectory;
-        config.log = getLog();
-        config.generateInterface = generateInterface;
+        config.setNewPackage(toPackage);
+        config.setOldPackage(fromPackage);
+        config.setSourcePackage(sourcePackage);
+        config.setOutputDirectory(outputDirectory);
+        config.setLog(getLog());
+        config.setGenerateInterface(generateInterface);
         JavaScriptOverlayGenerator gen = new JavaScriptOverlayGenerator(config);
         try {
             gen.generate();

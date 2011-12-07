@@ -27,25 +27,109 @@ public class Config {
     /**
      * Part of the old package name to be replaced
      */
-    public String oldPackage;
+    private String oldPackage;
     /**
      * The new package name to generate to
      */
-    public String newPackage;
+    private String newPackage;
     /**
      * The source package to generate from
      */
-    public String sourcePackage;
+    private String sourcePackage;
     /**
      * The directory to output the generated source
      */
-    public String outputDirectory;
+    private String outputDirectory;
     /**
      * Log object used by maven
      */
-    public Log log;
+    private Log log;
     /**
      * True if interfaces should be generated for all overlay objects
      */
-    public boolean generateInterface;
+    private boolean generateInterface;
+
+    /**
+     * @return the oldPackage
+     */
+    public String getOldPackage() {
+        return oldPackage;
+    }
+
+    /**
+     * @param oldPackage the oldPackage to set
+     */
+    public void setOldPackage(String oldPackage) {
+        this.oldPackage = oldPackage;
+    }
+
+    /**
+     * @return the newPackage
+     */
+    public String getNewPackage() {
+        return newPackage;
+    }
+
+    /**
+     * @param newPackage the newPackage to set
+     */
+    public void setNewPackage(String newPackage) {
+        this.newPackage = newPackage;
+    }
+
+    /**
+     * @return the sourcePackage
+     */
+    public String getSourcePackage() {
+        return sourcePackage;
+    }
+
+    /**
+     * @param sourcePackage the sourcePackage to set
+     */
+    public void setSourcePackage(String sourcePackage) {
+        this.sourcePackage = sourcePackage;
+    }
+
+    /**
+     * @return the outputDirectory
+     */
+    public String getOutputDirectory() {
+        return outputDirectory;
+    }
+
+    /**
+     * @param outputDirectory the outputDirectory to set
+     */
+    public void setOutputDirectory(String outputDirectory) {
+        this.outputDirectory = outputDirectory;
+    }
+
+    /**
+     * @return the log
+     */
+    public Log getLog() {
+        return log;
+    }
+
+    /**
+     * @param log the log to set
+     */
+    public void setLog(Log log) {
+        this.log = log;
+    }
+
+    /**
+     * @return the generateInterface
+     */
+    public boolean isGenerateInterface() {
+        return generateInterface;
+    }
+
+    /**
+     * @param generateInterface the generateInterface to set
+     */
+    public void setGenerateInterface(boolean generateInterface) {
+        this.generateInterface = generateInterface;
+    }
 }

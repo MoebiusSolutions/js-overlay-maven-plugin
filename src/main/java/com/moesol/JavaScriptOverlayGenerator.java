@@ -19,14 +19,8 @@ import java.beans.BeanInfo;
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
-import java.io.BufferedOutputStream;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -44,33 +38,42 @@ public class JavaScriptOverlayGenerator {
 
     private ClassLoader loader;
     private final Config config;
+    private ClassInfo topPackage;
 
+    /**
+     * Constructor.
+     *
+     * @param config
+     */
     public JavaScriptOverlayGenerator(Config config) {
         this.config = config;
+        ReturnType.setConfig(config);
     }
 
     /**
      * Main method to generate GWT Javascript Overlay types
+     *
      * @throws ClassNotFoundException when sourcePackage does not exist
-     * @throws IOException 
+     * @throws IOException
      */
     public void generate() throws ClassNotFoundException, IOException, IntrospectionException {
-        generate(new File(config.outputDirectory));
+        generate(new File(config.getOutputDirectory()));
     }
 
     /**
      * Determine if source is a directory or jar file then call correct methods
+     *
      * @param targetDir
      * @throws ClassNotFoundException
-     * @throws IOException 
+     * @throws IOException
      */
     private void generate(File targetDir) throws ClassNotFoundException, IOException, IntrospectionException {
         loader = Thread.currentThread().getContextClassLoader();
 
-        String packageName = config.sourcePackage.replace(".", "/") + "/";
+        String packageName = config.getSourcePackage().replace(".", "/") + "/";
         URL packageURL = loader.getResource(packageName);
         String protocol = packageURL.getProtocol();
-        List<ClassInfo> list = null;
+        List<ClassInfo> list;
         if ("jar".equals(protocol)) {
             list = processJar(targetDir);
         } else {
@@ -81,15 +84,16 @@ public class JavaScriptOverlayGenerator {
 
     /**
      * Read a jar file and add all matching classfiles to the List
+     *
      * @param targetDir
      * @return List<ClassInfo> containing all matching classes from the jar
      * @throws IOException
-     * @throws ClassNotFoundException 
+     * @throws ClassNotFoundException
      */
     List<ClassInfo> processJar(File targetDir) throws IOException, ClassNotFoundException {
-        config.log.debug("Procesing jar file");
+        config.getLog().debug("Procesing jar file");
         ArrayList<ClassInfo> list = new ArrayList<ClassInfo>();
-        String searchPath = config.sourcePackage.replace(".", "/") + "/";
+        String searchPath = config.getSourcePackage().replace(".", "/") + "/";
         URL packageURL = loader.getResource(searchPath);
         String jarFileName;
         JarFile jf;
@@ -101,19 +105,19 @@ public class JavaScriptOverlayGenerator {
         jarFileName = jarFileName.substring(5, jarFileName.indexOf("!"));
         jarFileName = jarFileName.replaceAll("%20", " ");
         long jarTime = new File(jarFileName).lastModified();
-        File genDirectory = new File(config.outputDirectory);
+        File genDirectory = new File(config.getOutputDirectory());
         long genTime = genDirectory.lastModified();
         if (genTime >= jarTime) {
-            config.log.info("Generated source up to date, skipping");
+            config.getLog().info("Generated source up to date, skipping");
             return list;
         }
-        config.log.info("Writing Javascript Overlay files");
+        config.getLog().info("Writing Javascript Overlay files");
         jf = new JarFile(jarFileName);
-        config.log.info("Opening jar " + jarFileName);
+        config.getLog().info("Opening jar " + jarFileName);
         jarEntries = jf.entries();
         while (jarEntries.hasMoreElements()) {
             entryName = jarEntries.nextElement().getName();
-            config.log.debug("Entry " + entryName);
+            config.getLog().debug("Entry " + entryName);
             if (entryName.startsWith(searchPath) && entryName.endsWith(".class")) {
                 String path = entryName.substring(0, entryName.length() - 6);
                 String className = path.substring(path.lastIndexOf('/') + 1);
@@ -129,14 +133,15 @@ public class JavaScriptOverlayGenerator {
 
     /**
      * Recursively search a directory for all matching class files
+     *
      * @param packageName
      * @param targetDir
      * @return
      * @throws ClassNotFoundException
-     * @throws IOException 
+     * @throws IOException
      */
     List<ClassInfo> processDirectory(String packageName, File targetDir) throws ClassNotFoundException, IOException {
-        config.log.debug("processing directory " + packageName);
+        config.getLog().debug("processing directory " + packageName);
         ArrayList<ClassInfo> list = new ArrayList<ClassInfo>();
         URL packageURL = loader.getResource(packageName);
         File folder = new File(packageURL.getFile());
@@ -160,32 +165,36 @@ public class JavaScriptOverlayGenerator {
     }
 
     /**
-     * Take a List of ClassInfo objects and create the directory for each one, then call
-     * writeJso for each ClassInfo
+     * Take a List of ClassInfo objects and create the directory for each one, then call writeJso for each ClassInfo
+     *
      * @param ci
      * @throws IOException
-     * @throws ClassNotFoundException 
+     * @throws ClassNotFoundException
      */
     void writeJso(List<ClassInfo> ci) throws IOException, ClassNotFoundException, IntrospectionException {
+        topPackage = getTopPackage(ci);
         for (ClassInfo classInfo : ci) {
-            config.log.debug("Creating directory " + classInfo.getOutputDirectory().getAbsolutePath());
+            config.getLog().debug("Creating directory " + classInfo.getOutputDirectory().getAbsolutePath());
             File packageDir = classInfo.getOutputDirectory();
             packageDir.mkdirs();
             writeJso(classInfo);
+        }
+        if(topPackage != null){
+            writeArrayHelper(topPackage);
         }
     }
 
     /**
      * Write java class file to disk
-     * 
+     *
      * @param classInfo
      * @throws ClassNotFoundException
      * @throws IOException
-     * @throws IntrospectionException 
+     * @throws IntrospectionException
      */
     void writeJso(ClassInfo classInfo) throws ClassNotFoundException, IOException, IntrospectionException {
         if (classInfo.getClassName().equals("package_info")) {
-            config.log.info("Skipping class package_info");
+            config.getLog().info("Skipping class package_info");
             return;
         }
         Class<?> cls = classInfo.getOriginalClass();
@@ -194,43 +203,21 @@ public class JavaScriptOverlayGenerator {
             return;
         }
         PropertyDescriptor[] methods = getMethods(cls);
-        if (config.generateInterface) {
-            BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(new File(classInfo.getOutputDirectory(), "I" + classInfo.getClassName() + ".java")));
-            PrintStream ps = new PrintStream(fos);
-            ps.printf("package %s;%n", classInfo.getNewPackageName());
-            ps.printf("public interface I%s{%n", classInfo.getClassName());
-            generateInterface(methods, ps);
-            ps.printf("}%n");
-            ps.close();
-            fos.close();
-        }
+        generateInferfaces(classInfo, methods);
         BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(classInfo.getOutputFile()));
         PrintStream ps = new PrintStream(fos);
         ps.printf("package %s;%n", classInfo.getNewPackageName());
-        ps.printf("public class %sJso extends com.google.gwt.core.client.JavaScriptObject %s{%n", classInfo.getClassName(), config.generateInterface ? "implements I" + classInfo.getClassName() : "");
+        ps.printf("public class %sJso extends com.google.gwt.core.client.JavaScriptObject %s{%n", classInfo.getClassName(), config.isGenerateInterface() ? "implements I" + classInfo.getClassName() : "");
         ps.printf("  protected %sJso(){}%n", classInfo.getClassName());
         for (PropertyDescriptor propDescriptor : methods) {
             writeReadFunction(propDescriptor.getReadMethod(), ps);
             writeWriteFunction(propDescriptor.getWriteMethod(), ps);
         }
-        XmlRootElement rootAnn = cls.getAnnotation(XmlRootElement.class);
-        if (rootAnn != null) {
-            // as per http://tools.ietf.org/html/rfc4627
-            ps.printf("  public static native %sJso eval%s(String jsonText) /*-{"
-                    + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
-                    + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
-                    + " && "
-                    + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
-            ps.printf("  public static native com.google.gwt.core.client.JsArray<%sJso> eval%sArray(String jsonText) /*-{"
-                    + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
-                    + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
-                    + " && "
-                    + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
-        }
-        // create a className function
-        ps.printf("  public final native java.lang.String _getClassName()/*-{return '%s';}-*/;%n", classInfo.getNewPackageName() + "." + classInfo.getClassName() + "Jso");
+        generateEvalMethods(classInfo, cls, ps);
+        String genInterface = config.isGenerateInterface() ? "  @Override" : "";
+        ps.printf("%s%n  public final native java.lang.String _getClassName()/*-{return '%s';}-*/;%n", genInterface, classInfo.getNewPackageName() + "." + classInfo.getClassName() + "Jso");
         // create getJson function
-        ps.printf("  public final String _getJsonString(){%n    return new com.google.gwt.json.client.JSONObject(this).toString();%n  }%n");
+        ps.printf("%s%n  public final String _getJsonString(){%n    return new com.google.gwt.json.client.JSONObject(this).toString();%n  }%n", genInterface);
 
         ps.printf("}%n");
         ps.close();
@@ -239,118 +226,152 @@ public class JavaScriptOverlayGenerator {
 
     /**
      * Write getter methods
-     * 
+     *
      * @param method
-     * @param ps 
+     * @param ps
      */
     void writeReadFunction(Method method, PrintStream ps) {
         if (method == null) {
             return;
         }
-        ReturnType returnType = getType(method);
+        ReturnType returnType = ReturnType.getType(method);
         String methodName = method.getName();
         String lowerMethodName = returnType.getPropertyName(methodName);
-        if (returnType.isEnum) {
-            if (returnType.isArray) {
+        String override = config.isGenerateInterface() ? "@Override" : "";
+        if (returnType.isEnum()) {
+            if (returnType.isArray()) {
                 readEnumList(ps, returnType, methodName, lowerMethodName);
             } else {
-                ps.printf("  public final native java.lang.String _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
-                ps.printf("  public final %s %s(){%n    return %s.valueOf(_%s());    %n  }%n", returnType.name, methodName, returnType.name, methodName);
+                ps.printf("  private final native java.lang.String _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+                ps.printf("  %s%n  public final %s %s(){%n    return %s.valueOf(_%s());    %n  }%n", override, returnType.getQualifiedReturnType(topPackage), methodName, returnType.getName(), methodName);
             }
-        } else if (returnType.isDate) {
-            ps.printf("  public final native java.lang.String %s()/*-{return new String(this[\"%s\"]);}-*/;%n", methodName, lowerMethodName);
-        } else if (returnType.isList) {
-            if (returnType.parameterTypeIsEnum) {
+        } else if (returnType.isDate()) {
+            ps.printf("  %s%n  public final native java.lang.String %s()/*-{return new String(this[\"%s\"]);}-*/;%n", override, methodName, lowerMethodName);
+        } else if (returnType.isList()) {
+            if (returnType.isParameterTypeEnum()) {
                 readEnumList(ps, returnType, methodName, lowerMethodName);
             } else {
-                ps.printf("  public final native com.google.gwt.core.client.JsArray<%s> %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
+                ps.printf("  private final native com.google.gwt.core.client.JsArray<com.google.gwt.core.client.JavaScriptObject> _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+                ps.printf("  %s%n  public final %s %s(){%n", override, returnType.getQualifiedReturnType(topPackage), methodName);
+                ps.printf("    return new %s(_%s());%n    }%n", returnType.getQualifiedReturnType(topPackage), methodName);
             }
-        } else if (returnType.isArray) {
-            ps.printf("  public final native %s[] %s()/*-{return this[\"%s\"];}-*/;%n", returnType.parameterType, methodName, lowerMethodName);
         } else {
-            ps.printf("  public final native %s %s()/*-{return this[\"%s\"];}-*/;%n", returnType.name, methodName, lowerMethodName);
+            ps.printf("  %s%n  public final native %s %s()/*-{return this[\"%s\"];}-*/;%n", override, returnType.getQualifiedReturnImplType(topPackage), methodName, lowerMethodName);
         }
     }
 
     /**
      * Write the method for getting enums.
-     * 
+     *
      * @param ps
      * @param returnType
      * @param methodName
-     * @param lowerMethodName 
+     * @param lowerMethodName
      */
     private void readEnumList(PrintStream ps, ReturnType returnType, String methodName, String lowerMethodName) {
-        ps.printf("  public final native java.lang.String[] _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
-        ps.printf("  public final %s[] %s(){%n"
+        if (config.isGenerateInterface()) {
+            ps.printf("  @Override%n");
+        }
+        if (returnType.isArray()) {
+            ps.printf("  public final %s %s(){%n"
                 + "    java.lang.String[] data = _%s();%n"
                 + "    %s[] retData = new %s[data.length];%n"
                 + "    for(int i=0; i<data.length; i++){%n"
                 + "      retData[i] = %s.valueOf(data[i]);%n"
                 + "    }%n"
-                + "    return retData;%n  }%n", returnType.parameterType, methodName, methodName, returnType.parameterType, returnType.parameterType, returnType.parameterType);
+                + "    return retData;%n  }%n",
+                returnType.getQualifiedReturnType(topPackage),
+                methodName,
+                methodName,
+                returnType.getParameterType(),
+                returnType.getParameterType(),
+                returnType.getParameterType());
+            ps.printf("  public final native java.lang.String[] _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+        } else {
+//            TODO fix this here, can not use instance variables
+            ps.printf("  public final %s %s(){%n", returnType.getQualifiedReturnType(topPackage), methodName);
+            ps.printf("    return new %s(_%s());%n",returnType.getQualifiedReturnType(topPackage), methodName);
+            ps.printf("  }%n");
+            ps.printf("  public final native com.google.gwt.core.client.JsArray _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+//            ps.printf("    java.lang.String[] data = _%s();%n", lowerMethodName);
+//            ps.printf("    %s retData = new %s((com.google.gwt.core.client.JsArray<com.google.gwt.core.client.JavaScriptObject>)com.google.gwt.core.client.JsArray.createArray());%n", lowerMethodName, methodName);
+//            ps.printf("    for(int i=0; i<data.length; i++){%n"
+//                + "      retData.add(%s.valueOf(data[i]));%n"
+//                + "    }%n"
+//                + "    return retData;%n  }%n",
+//                returnType.getQualifiedReturnType(topPackage),
+//                returnType.getQualifiedReturnType(topPackage),
+//                returnType.getParameterType());
+        }
     }
 
     /**
      * Write the methods for setting enums.
-     * 
+     *
      * @param ps
      * @param type
      * @param methodName
-     * @param lowerMethodName 
+     * @param lowerMethodName
      */
     private void writeEnumList(PrintStream ps, ReturnType type, String methodName, String lowerMethodName) {
         ps.printf("  public final native void _%s(java.lang.String[] value )/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
-        ps.printf("  public final void %s(%s[] value){%n"
+        if (config.isGenerateInterface()) {
+            ps.printf("  @Override%n");
+        }
+        if (type.isArray()) {
+            ps.printf("  public final void %s(%s[] value){%n"
                 + "    java.lang.String[] data = new String[value.length];%n"
                 + "    for(int i=0; i<data.length; i++){%n"
                 + "      data[i] = value[i].name();%n"
                 + "    }%n"
-                + "    _%s(data);%n  }%n", methodName, type.parameterType, methodName);
+                + "    _%s(data);%n  }%n", methodName, type.getParameterType(), methodName);
+        } else {
+            ps.printf("  public final void %s(%s value){%n"
+                + "    java.lang.String[] data = new String[value.length()];%n"
+                + "    for(int i=0; i<data.length; i++){%n"
+                + "      data[i] = value.get(i).name();%n"
+                + "    }%n"
+                + "    _%s(data);%n  }%n", methodName, type.getQualifiedReturnType(topPackage), methodName);
+        }
     }
 
     /**
      * Write the setter method for all settable properties.
-     * 
+     *
      * @param method
-     * @param ps 
+     * @param ps
      */
     void writeWriteFunction(Method method, PrintStream ps) {
         if (method == null) {
             return;
         }
-        ReturnType paramType = getType(method);
+        ReturnType paramType = ReturnType.getType(method);
         String methodName = method.getName();
         String lowerMethodName = paramType.getPropertyName(methodName);
-        if (paramType.isEnum) {
-            if (paramType.isArray) {
+        String override = config.isGenerateInterface() ? "@Override" : "";
+        if (paramType.isEnum() && paramType.isArray()) {
+            writeEnumList(ps, paramType, methodName, lowerMethodName);
+        } else if (paramType.isEnum()) {
+            ps.printf("  %s%n  public final void %s(%s value){%n    _%s(value.name());    %n  }%n", override, methodName, paramType.getName(), methodName);
+            ps.printf("  public final native void _%s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
+        } else if(paramType.isList()){
+            if(paramType.isParameterTypeEnum()){
                 writeEnumList(ps, paramType, methodName, lowerMethodName);
-            } else {
-                ps.printf("  public final native void _%s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
-                ps.printf("  public final void %s(%s value){%n    _%s(value.name());    %n  }%n", methodName, paramType.name, methodName);
+            }else{
+                ps.printf("  %s%n  public final native void %s(%s value)/*-{this[\"%s\"] = value;}-*/;%n", override, methodName, paramType.getQualifiedReturnType(topPackage), lowerMethodName);
             }
-        } else if (paramType.isDate) {
-            ps.printf("  public final native void %s(java.lang.String value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, lowerMethodName);
-        } else if (paramType.isList) {
-            if (paramType.parameterTypeIsEnum) {
-                writeEnumList(ps, paramType, methodName, lowerMethodName);
-            } else {
-                ps.printf("  public final native void %s(com.google.gwt.core.client.JsArray<%s> value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
-            }
-        } else if (paramType.isArray) {
-            ps.printf("  public final native void %s(%s[] value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.parameterType, lowerMethodName);
-        } else {
-            ps.printf("  public final native void %s(%s value)/*-{this[\"%s\"] = value;}-*/;%n", methodName, paramType.name, lowerMethodName);
+        }else {
+            ps.printf("  %s%n  public final native void %s(%s value)/*-{this[\"%s\"] = value;}-*/;%n", override, methodName, paramType.getQualifiedReturnType(topPackage), lowerMethodName);
         }
     }
 
     /**
-     * Gets the declared methods in a class and returns an array of methods
-     * for all bean properties (get/set)
-     * 
+     * Gets the declared methods in a class and returns an array of methods for all bean properties (get/set)
+     *
      * If only getters exist they will be ignored
+     *
      * @param cls
-     * @return 
+     * @return
      */
     PropertyDescriptor[] getMethods(Class cls) throws IntrospectionException {
         BeanInfo beanInfo = Introspector.getBeanInfo(cls, Object.class);
@@ -359,115 +380,14 @@ public class JavaScriptOverlayGenerator {
         return methodDescriptors;
     }
 
-    /**
-     * Returns a javascript friendly type for the java type.
-     * Converts an XMLGregorianCalendar type to an interal date
-     * which is converted to a String wrapper around the long of the data.
-     * Appends Jso to all non primitive and java.xxxx types
-     * @param method
-     * @return 
-     */
-    ReturnType getType(Method method) {
-        ReturnType theType = new ReturnType();
-        Class<?> type = method.getReturnType();
-        if ("void".equals(type.getName())) {
-            // its a set method, get the parameter type
-            type = method.getParameterTypes()[0];
-        }
-        if (type.getName().equals("javax.xml.datatype.XMLGregorianCalendar")) {
-            theType.name = "date";
-            theType.isDate = true;
-            return theType;
-        }
-        if (type.isArray()) {
-            theType.parameterType = getClassNameType(type.getComponentType());
-            if (type.getComponentType().isEnum()) {
-                theType.parameterTypeIsEnum = true;
-            }
-            theType.isArray = true;
-            if (type.getComponentType().isEnum()) {
-                theType.isEnum = true;
-            }
-            return theType;
-        }
-        if (getGenericTypes(type, method, theType)) {
-            return theType;
-        }
-        if (type.isEnum()) {
-            theType.isEnum = true;
-        }
-        theType.name = getClassNameType(type);
-        return theType;
-    }
-
-    /**
-     * Checks to see if the method gets or sets generic types and updates theType 
-     * as required
-     * @param type
-     * @param method
-     * @param theType
-     * @return true if a generic type was found
-     */
-    private boolean getGenericTypes(Class<?> type, Method method, ReturnType theType) {
-        Class<?>[] interfaces = type.getInterfaces();
-        for (Class<?> cls : interfaces) {
-            if (cls.getName().equals("java.util.Collection")) {
-                Type genericReturnType = method.getGenericReturnType();
-                if ("void".equals(genericReturnType.toString())) {
-                    genericReturnType = method.getGenericParameterTypes()[0];
-                }
-                ParameterizedType pt = (ParameterizedType) genericReturnType;
-                Class t = (Class) pt.getActualTypeArguments()[0];
-                if (pt.getClass().isEnum()) {
-                    theType.isEnum = true;
-                }
-                theType.parameterType = getClassNameType(t);
-                if (t.isEnum()) {
-                    theType.parameterTypeIsEnum = true;
-                }
-                if (theType.parameterType.startsWith("java")) {
-                    // java types do not extend JavascriptObject
-                    theType.isArray = true;
-                } else {
-                    theType.isList = true;
-                }
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Get the new package and class name for a Class.
-     * Appends Jso to any non java.xxxx type
-     * @param type
-     * @return 
-     */
-    private String getClassNameType(Class<?> type) {
-        String name = type.getName();
-        int lastDot = name.lastIndexOf(".");
-        if (lastDot == -1) {
-            return name;
-        }
-        ClassInfo ci = new ClassInfo(config);
-        ci.setPackageName(name);
-        name = ci.getNewPackageName();
-        if (name.startsWith("java") == false) {
-            name = name.replace("$", "_");
-            if (!type.isEnum()) {
-                name += "Jso";
-            }
-        }
-        return name;
-    }
-
     void setLoader(ClassLoader classLoader) {
         this.loader = classLoader;
     }
 
     /**
      * Generate a pure java enum implementation
-     * @param classInfo 
+     *
+     * @param classInfo
      */
     private void writeJavaEnum(ClassInfo classInfo) throws ClassNotFoundException, IOException {
         Class<?> cls = classInfo.getOriginalClass();
@@ -491,14 +411,13 @@ public class JavaScriptOverlayGenerator {
             ps.close();
             fos.close();
         }
-        return;
     }
 
     /**
      * Write the interface class
-     * 
+     *
      * @param methods
-     * @param ps 
+     * @param ps
      */
     private void generateInterface(PropertyDescriptor[] methods, PrintStream ps) {
         ps.printf("  java.lang.String _getJsonString();%n");
@@ -506,46 +425,105 @@ public class JavaScriptOverlayGenerator {
         for (PropertyDescriptor propertyDescriptor : methods) {
             Method method = propertyDescriptor.getReadMethod();
             if (method != null) {
-                ReturnType returnType = getType(method);
-                String methodName = method.getName();
-                if (returnType.isArray) {
-                    ps.printf("  %s[] %s();%n", returnType.parameterType, methodName);
-                } else if (returnType.isDate) {
-                    ps.printf("  java.lang.String %s();%n", methodName);
-                } else if (returnType.isList) {
-                    if (returnType.parameterTypeIsEnum) {
-                        ps.printf("  %s[] %s();%n", returnType.parameterType, methodName);
-                    } else {
-                        ps.printf("  com.google.gwt.core.client.JsArray<%s> %s();%n", returnType.parameterType, methodName);
-                    }
-                } else {
-                    ps.printf("  %s %s();%n", returnType.name, methodName);
-                }
+                ReturnType returnType = ReturnType.getType(method);
+                ps.printf("  %s %s();%n", returnType.getQualifiedReturnType(topPackage), method.getName());
             }
             method = propertyDescriptor.getWriteMethod();
             if (method != null) {
-                ReturnType paramType = getType(method);
-                String methodName = method.getName();
-                if (paramType.isEnum) {
-                    if (paramType.isArray) {
-                        ps.printf("  void %s(%s[] value);%n", methodName, paramType.parameterType);
-                    } else {
-                        ps.printf("  void %s(%s value);%n", methodName, paramType.name);
-                    }
-                } else if (paramType.isDate) {
-                    ps.printf("  void %s(java.lang.String value);%n", methodName);
-                } else if (paramType.isList) {
-                    if (paramType.parameterTypeIsEnum) {
-                        ps.printf("  void %s(%s[] value);%n", methodName, paramType.parameterType);
-                    } else {
-                        ps.printf("  void %s(com.google.gwt.core.client.JsArray<%s> value);%n", methodName, paramType.parameterType);
-                    }
-                } else if (paramType.isArray) {
-                    ps.printf("  void %s(%s[] value);%n", methodName, paramType.parameterType);
-                } else {
-                    ps.printf("  void %s(%s value);%n", methodName, paramType.name);
+                ReturnType paramType = ReturnType.getType(method);
+                ps.printf("  void %s(%s value);%n", method.getName(), paramType.getQualifiedReturnType(topPackage));
+            }
+        }
+    }
+
+    /**
+     * Create a an ArrayHelper class that implements part of the java.util.List api and is backed by JsArray in the
+     * client space. The class only gets generated if one of the objects uses a List.
+     *
+     * @param list
+     */
+    private void writeArrayHelper(ClassInfo packageInfo) throws ClassNotFoundException, IOException {
+        System.out.println("Building " + packageInfo.getOutputDirectory() + "/ListHelper.java");
+        BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(new File(packageInfo.getOutputDirectory(), "ListHelper.java")));
+        PrintStream ps = new PrintStream(fos);
+        ps.printf("package %s;%n", packageInfo.getNewPackageName());
+        ps.printf("import com.google.gwt.core.client.JavaScriptObject;%n");
+        ps.printf("import com.google.gwt.core.client.JsArray;%n%n");
+        ps.printf("public class ListHelper<T>{%n");
+        ps.printf("  private JsArray<JavaScriptObject> array = null;%n");
+        ps.printf("  public ListHelper(JsArray<JavaScriptObject> array){%n    this.array = array;%n  }%n%n");
+        ps.printf("  public ListHelper(JavaScriptObject[] value){%n    array = (JsArray)JsArray.createArray();%n    for(JavaScriptObject o: value){%n      array.push(o);%n    }%n  }%n%n");
+        ps.printf("  public T get(int index){%n    return (T)array.get(index);%n  }%n%n");
+        ps.printf("  public void add(T obj){%n    array.push((JavaScriptObject)obj);%n  }%n%n");
+        ps.printf("  public void set(int index, T obj){%n    array.set(index, (JavaScriptObject)obj);%n  }%n%n");
+        ps.printf("  public int length(){%n    return array.length();%n    }%n%n");
+        ps.printf("}");
+        ps.close();
+        fos.close();
+    }
+    
+    /**
+     * Gets the top level class that is being generated.
+     *
+     * @param classInfoList
+     * @return
+     */
+    private ClassInfo getTopPackage(List<ClassInfo> classInfoList) {
+        ClassInfo classInfo = null;
+        for (ClassInfo ci : classInfoList) {
+            if (classInfo == null) {
+                classInfo = ci;
+            } else {
+                if (classInfo.getNewPackageName().contains(ci.getNewPackageName())) {
+                    classInfo = ci;
                 }
             }
         }
+        return classInfo;
+    }
+
+    /**
+     * Generates the interface classes if generate interfaces is true
+     *
+     * @param classInfo
+     * @param methods
+     * @throws IOException
+     */
+    private void generateInferfaces(ClassInfo classInfo, PropertyDescriptor[] methods) throws IOException {
+        if (config.isGenerateInterface()) {
+            BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(new File(classInfo.getOutputDirectory(), "I" + classInfo.getClassName() + ".java")));
+            PrintStream ps = new PrintStream(fos);
+            ps.printf("package %s;%n", classInfo.getNewPackageName());
+            ps.printf("public interface I%s{%n", classInfo.getClassName());
+            generateInterface(methods, ps);
+            ps.printf("}%n");
+            ps.close();
+            fos.close();
+        }
+    }
+
+    /**
+     * Generates the safe javascript eval static functions
+     *
+     * @param classInfo
+     * @param cls
+     * @param ps
+     */
+    private void generateEvalMethods(ClassInfo classInfo, Class<?> cls, PrintStream ps) {
+        XmlRootElement rootAnn = cls.getAnnotation(XmlRootElement.class);
+        if (rootAnn != null) {
+            // as per http://tools.ietf.org/html/rfc4627
+            ps.printf("  public static native %sJso eval%s(String jsonText) /*-{"
+                + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
+                + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
+                + " && "
+                + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
+            ps.printf("  public static native com.google.gwt.core.client.JsArray<%sJso> eval%sArray(String jsonText) /*-{"
+                + "return !(/[^,:{}\\[\\]0-9.\\-+Eaeflnr-u \\n\\r\\t]/.test( "
+                + "jsonText.replace(/\"(\\\\.|[^\"\\\\])*\"/g, ''))) "
+                + " && "
+                + "eval('(' + jsonText + ')');}-*/;%n", classInfo.getClassName(), classInfo.getClassName());
+        }
+
     }
 }

@@ -26,7 +26,7 @@ public class ClassInfo {
     private String pckageName;
     private String className;
     private String origClassName;
-    private final Config config;
+    private Config config;
 
     /**
      * Constructor
@@ -41,10 +41,10 @@ public class ClassInfo {
      * @param packageName 
      */
     public void setPackageName(String packageName) {
-        this.pckageName = packageName.replace("/", ".");
-        int lastChar = this.pckageName.length() - 1;
-        if(this.pckageName.charAt(lastChar) == '.'){
-            this.pckageName = this.pckageName.substring(0, lastChar);
+        this.setPckageName(packageName.replace("/", "."));
+        int lastChar = this.getPckageName().length() - 1;
+        if(this.getPckageName().charAt(lastChar) == '.'){
+            this.setPckageName(this.getPckageName().substring(0, lastChar));
         }
     }
 
@@ -53,7 +53,7 @@ public class ClassInfo {
      * @param clsName 
      */
     public void setClassName(String clsName){
-        origClassName = clsName;
+        setOrigClassName(clsName);
         className = clsName.replace("-", "_").replace("$", "_");
     }
     /**
@@ -62,9 +62,9 @@ public class ClassInfo {
      * @return
      */
     public String getNewPackageName() {
-        String pak = pckageName;
-        if (config.oldPackage != null && config.newPackage != null) {
-            pak = pak.replaceAll(config.oldPackage, config.newPackage);
+        String pak = getPckageName();
+        if (getConfig().getOldPackage() != null && getConfig().getNewPackage() != null) {
+            pak = pak.replaceAll(getConfig().getOldPackage(), getConfig().getNewPackage());
         }
         return pak;
     }
@@ -74,7 +74,7 @@ public class ClassInfo {
      * @return 
      */
     public File getOutputDirectory() {
-        return new File(config.outputDirectory, getNewPackageName().replace(".", "/"));
+        return new File(getConfig().getOutputDirectory(), getNewPackageName().replace(".", "/"));
     }
 
     /**
@@ -84,9 +84,9 @@ public class ClassInfo {
      */
     public File getOutputFile() throws ClassNotFoundException {
         if(getOriginalClass().isEnum()){
-            return new File(getOutputDirectory(), className + ".java");
+            return new File(getOutputDirectory(), getClassName() + ".java");
         }
-        return new File(getOutputDirectory(), className + "Jso.java");
+        return new File(getOutputDirectory(), getClassName() + "Jso.java");
     }
 
     /**
@@ -95,7 +95,7 @@ public class ClassInfo {
      * @throws ClassNotFoundException 
      */
     public Class getOriginalClass() throws ClassNotFoundException {
-        return Class.forName(getOriginalPackage() + "." + origClassName);
+        return Class.forName(getOriginalPackage() + "." + getOrigClassName());
     }
 
     /**
@@ -103,7 +103,7 @@ public class ClassInfo {
      * @return 
      */
     private String getOriginalPackage() {
-        return pckageName;
+        return getPckageName();
     }
 
     /**
@@ -112,6 +112,41 @@ public class ClassInfo {
      */
     public String getClassName() {
         return className;
+    }
+
+    /**
+     * @return the pckageName
+     */
+    public String getPckageName() {
+        return pckageName;
+    }
+
+    /**
+     * @param pckageName the pckageName to set
+     */
+    public void setPckageName(String pckageName) {
+        this.pckageName = pckageName;
+    }
+
+    /**
+     * @return the origClassName
+     */
+    public String getOrigClassName() {
+        return origClassName;
+    }
+
+    /**
+     * @param origClassName the origClassName to set
+     */
+    public void setOrigClassName(String origClassName) {
+        this.origClassName = origClassName;
+    }
+
+    /**
+     * @return the config
+     */
+    public Config getConfig() {
+        return config;
     }
     
 }
