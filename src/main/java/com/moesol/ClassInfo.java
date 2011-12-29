@@ -149,4 +149,11 @@ public class ClassInfo {
         return config;
     }
     
+    /**
+     * @param config the config to set
+     */
+    public void setConfig(Config config) {
+        this.config = config;
+}
+    
 }

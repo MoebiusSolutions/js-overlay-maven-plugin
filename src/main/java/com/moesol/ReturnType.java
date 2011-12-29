@@ -30,14 +30,30 @@ public class ReturnType {
      * @return the config
      */
     public static Config getConfig() {
-        return config;
+        return gConfig;
     }
 
     /**
      * @param aConfig the config to set
      */
     public static void setConfig(Config aConfig) {
-        config = aConfig;
+        gConfig = aConfig;
+    }
+
+    /**
+     * Get the return type for a method, if void then get the 
+     * type of the first parameter.
+     * @param method
+     * @return 
+     */
+    private static ReturnType getReturnType(Method method) {
+        ReturnType theType = new ReturnType();
+        theType.type = method.getReturnType();
+        if ("void".equals(theType.type.getName())) {
+            // its a set method, get the parameter type
+            theType.type = method.getParameterTypes()[0];
+        }
+        return theType;
     }
 
     /**
@@ -71,7 +87,7 @@ public class ReturnType {
     /**
      * Config object for the schema
      */
-    private static Config config;
+    private static Config gConfig;
     private String parameterImplType;
     private Class<?> type;
 
@@ -99,12 +115,7 @@ public class ReturnType {
      * @return 
      */
     static ReturnType getType(Method method) {
-        ReturnType theType = new ReturnType();
-        theType.type = method.getReturnType();
-        if ("void".equals(theType.type.getName())) {
-            // its a set method, get the parameter type
-            theType.type = method.getParameterTypes()[0];
-        }
+        ReturnType theType = getReturnType(method);
         if (theType.type.getName().equals("javax.xml.datatype.XMLGregorianCalendar")) {
             theType.setName("date");
             theType.setDate(true);
@@ -112,11 +123,9 @@ public class ReturnType {
         }
         if (theType.type.isArray()) {
             theType.setParameterType(getClassNameType(theType.type.getComponentType(), getConfig().isGenerateInterface()));
-            if (theType.type.getComponentType().isEnum()) {
-                theType.setParameterTypeEnum(true);
-            }
             theType.setArray(true);
             if (theType.type.getComponentType().isEnum()) {
+                theType.setParameterTypeEnum(true);
                 theType.setEnum(true);
             }
             return theType;

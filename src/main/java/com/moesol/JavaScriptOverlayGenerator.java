@@ -19,7 +19,11 @@ import java.beans.BeanInfo;
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
-import java.io.*;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
@@ -251,7 +255,9 @@ public class JavaScriptOverlayGenerator {
             if (returnType.isParameterTypeEnum()) {
                 readEnumList(ps, returnType, methodName, lowerMethodName);
             } else {
-                ps.printf("  private final native com.google.gwt.core.client.JsArray<com.google.gwt.core.client.JavaScriptObject> _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
+                ps.printf("  private final native com.google.gwt.core.client.JsArray<com.google.gwt.core.client.JavaScriptObject> _%s()/*-{"
+                    + "if(this[\"%s\"] === undefined){this[\"%s\"]=new Array();}%n"
+                    + "return this[\"%s\"];}-*/;%n", methodName, lowerMethodName,lowerMethodName,lowerMethodName);
                 ps.printf("  %s%n  public final %s %s(){%n", override, returnType.getQualifiedReturnType(topPackage), methodName);
                 ps.printf("    return new %s(_%s());%n    }%n", returnType.getQualifiedReturnType(topPackage), methodName);
             }
@@ -288,20 +294,12 @@ public class JavaScriptOverlayGenerator {
                 returnType.getParameterType());
             ps.printf("  public final native java.lang.String[] _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
         } else {
-//            TODO fix this here, can not use instance variables
             ps.printf("  public final %s %s(){%n", returnType.getQualifiedReturnType(topPackage), methodName);
             ps.printf("    return new %s(_%s());%n",returnType.getQualifiedReturnType(topPackage), methodName);
             ps.printf("  }%n");
-            ps.printf("  public final native com.google.gwt.core.client.JsArray _%s()/*-{return this[\"%s\"];}-*/;%n", methodName, lowerMethodName);
-//            ps.printf("    java.lang.String[] data = _%s();%n", lowerMethodName);
-//            ps.printf("    %s retData = new %s((com.google.gwt.core.client.JsArray<com.google.gwt.core.client.JavaScriptObject>)com.google.gwt.core.client.JsArray.createArray());%n", lowerMethodName, methodName);
-//            ps.printf("    for(int i=0; i<data.length; i++){%n"
-//                + "      retData.add(%s.valueOf(data[i]));%n"
-//                + "    }%n"
-//                + "    return retData;%n  }%n",
-//                returnType.getQualifiedReturnType(topPackage),
-//                returnType.getQualifiedReturnType(topPackage),
-//                returnType.getParameterType());
+            ps.printf("  public final native com.google.gwt.core.client.JsArray _%s()/*-{"
+                + "if(this[\"%s\"] === undefined){this[\"%s\"]=new Array();}%n"
+                + "return this[\"%s\"];}-*/;%n", methodName, lowerMethodName,lowerMethodName,lowerMethodName);
         }
     }
 
@@ -443,7 +441,6 @@ public class JavaScriptOverlayGenerator {
      * @param list
      */
     private void writeArrayHelper(ClassInfo packageInfo) throws ClassNotFoundException, IOException {
-        System.out.println("Building " + packageInfo.getOutputDirectory() + "/ListHelper.java");
         BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(new File(packageInfo.getOutputDirectory(), "ListHelper.java")));
         PrintStream ps = new PrintStream(fos);
         ps.printf("package %s;%n", packageInfo.getNewPackageName());
